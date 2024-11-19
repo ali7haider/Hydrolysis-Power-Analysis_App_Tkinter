@@ -1,0 +1,9 @@
+attribute,SmartFreestream,SmartMonofloat,EnviroGen005series,Hydroquest1.4,EVG-050H,EVG-025H
+Pout kW,5,5,5,40,50,25
+Lenght,2.64,3.13,1.7,5.9,3.4,3.4
+Width,1.12,1.6,1.5,5.9,3.4,3.4
+Height,1.12,2.01,0.75,1.8,3.4,1.7
+rtor,1,1,1.125,1.5,11.56,5.78
+Depth,1.1,2,2.5,2.2,5.05,3.35
+Type,,,,H-Darrieus,H-Darrieus,H-Darrieus
+Link,,,,,https://www.newenergycorp.ca/25kwturbine,https://www.newenergycorp.ca/25kwturbine
