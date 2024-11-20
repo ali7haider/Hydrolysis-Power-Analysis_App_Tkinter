@@ -622,7 +622,7 @@ class HomePage(tk.Frame):
                 return False
             else:
                 self.log_message("Dry, Wet, and Normal Years confirmed successfully and saved.")
-                self.log_message_2("\n\nPlease click 'Procesamiento' to continue.\n\n")
+                self.log_message_2("\nPlease click 'Procesamiento' to continue.\n\n")
 
                 # Save valid years for further processing
                 self.dry_years = dry_years
@@ -694,9 +694,33 @@ class HomePage(tk.Frame):
             highlightbackground="#4d4eba",  # Border color
             highlightthickness=2,  # Border thickness
             cursor="hand2",  # Pointer cursor
-            command=self.show_content_frame  # Button command to go back to main content
+            command=lambda: self.confirm_turbine_selection(popup)  # Wrap the function call
         )
         self.btnConfirm_2.pack(pady=20, padx=20, anchor='e')  # Padding for the button
+
+    def confirm_turbine_selection(self, popup):
+        """
+        Confirms the selected turbine graph, saves it to self.turbine_option,
+        updates button states, and closes the pop-up window.
+        """
+        # Get the selected option from the combo box
+        self.turbine_option = self.cmbxTurbineGraph.get()
+        
+        if not self.turbine_option:
+            # Show an error message if no option is selected
+            from tkinter import messagebox
+            messagebox.showerror("Selection Error", "Please select a turbine graph before confirming.")
+            return
+
+        # Save the selected option
+        print(f"Selected turbine graph: {self.turbine_option}")
+
+        # Update button states
+        self.btnResult.config(state=tk.NORMAL)  # Activate btnResult
+        self.btnProce.config(state=tk.DISABLED)  # Disable btnProce
+
+        # Close the pop-up window
+        popup.destroy()
 
     def apply_button_styles(self, button):
         # Apply normal style to the button
@@ -842,7 +866,7 @@ class HomePage(tk.Frame):
             highlightbackground="#4d4eba",  # Border color
             highlightthickness=2,  # Border thickness
             cursor="hand2",  # Pointer cursor
-            command=self.show_content_frame  # Button command to go back to main content
+            # command=self.show_content_frame  # Button command to go back to main content
         )
         self.btnConfirm_2.pack(pady=20, padx=20, anchor='e')  # Padding for the button
 
