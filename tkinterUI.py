@@ -26,6 +26,7 @@ import matplotlib.dates as mdates
 from Clase_turbinaV2 import Turbina
 import tkinter.filedialog as filedialog
 from PIL import Image, ImageTk  # To work with images in Tkinter
+from tkinter import messagebox
 
 class HydropowerApp(tk.Tk):
     def __init__(self):
@@ -213,6 +214,8 @@ class HomePage(tk.Frame):
         elif self.current_graph == 3:
             # Display the Nivel heatmap
             self.plot_heatmap(self.nivel_data, 'Nivel')
+            self.root.quit()  # Stop the application after the last graph
+
 
         # Schedule the next update in 5000 milliseconds (5 seconds)
         if self.current_graph < 4:  # Continue if we haven't finished
@@ -310,6 +313,143 @@ class HomePage(tk.Frame):
         self.show_information(f"{graph_informtaion}")
 
 
+    def preprocess_data(self):
+        """Function for the 'Pretratamiento' step, handling data completeness checks and interpolation."""
+        self.clear_logs()  # Clear previous logs for clarity
+        self.log_message("Starting data preprocessing...")
+
+        # Load data from files
+        self.caudal_data = pd.read_csv(self.caudal_file, delimiter='|', decimal='.')
+        self.nivel_data = pd.read_csv(self.nivel_file, delimiter='|', decimal='.')
+
+        # Convert 'Fecha' to datetime format
+        try:
+            self.caudal_data["Fecha"] = pd.to_datetime(self.caudal_data["Fecha"], errors='coerce')
+            self.nivel_data["Fecha"] = pd.to_datetime(self.nivel_data["Fecha"], errors='coerce')
+            self.log_message("Date conversion successful")
+        except Exception as e:
+            self.log_message(f"Error in date conversion: {e}")
+            return
+
+        # Ensure 'Valor' column exists and filter valid dates
+        self.caudal_data = self.caudal_data.dropna(subset=["Fecha", "Valor"])
+        self.nivel_data = self.nivel_data.dropna(subset=["Fecha", "Valor"])
+        # Group data by year and calculate missing data percentage
+        for label, dataset in [("Caudal", self.caudal_data), ("Nivel", self.nivel_data)]:
+            yearly_data = dataset.set_index("Fecha").resample("Y").count()["Valor"]
+            yearly_data = yearly_data.rename("Records").reset_index()
+            yearly_data["Year"] = yearly_data["Fecha"].dt.year
+            yearly_data["Missing %"] = 100 * (1 - yearly_data["Records"] / 365)
+
+            # Log results with section headers and separator lines
+            self.log_message(f"{label} Data Completeness by Year:")
+            for _, row in yearly_data.iterrows():
+                year, records, missing_pct = row["Year"], row["Records"], row["Missing %"]
+                if missing_pct > 20:
+                    color = 'red'
+                    status = "Marked for exclusion."
+                else:
+                    color = 'green'
+                    status = "Data is usable."
+                self.log_message(f"Year {year}: {missing_pct:.2f}% missing  - {status}")
+        
+        # Process each dataset for interpolation and statistics
+        for label, dataset in [("Caudal", self.caudal_data), ("Nivel", self.nivel_data)]:
+            # Create a copy to avoid modifying original data
+            dataset = dataset.copy()
+
+            # Filter out zero and null values
+            dataset = dataset[(dataset["Valor"] != 0) & (~dataset["Valor"].isna())]
+
+            # Set 'Fecha' as index and ensure full date range
+            dataset.set_index("Fecha", inplace=True)
+            full_index = pd.date_range(start=dataset.index.min(), end=dataset.index.max(), freq="D")
+            dataset = dataset.reindex(full_index)
+            
+            # Fill missing consecutive NaNs if <= 20% of the year (~73 days)
+            dataset["NaN_count_pre"] = dataset["Valor"].isna().astype(int).groupby(dataset["Valor"].notna().astype(int).cumsum()).cumsum()
+
+            def interpolate_if_needed(group):
+                max_consecutive_nans = group["NaN_count_pre"].max()
+                if max_consecutive_nans <= 73:
+                    group["Valor"] = group["Valor"].interpolate()
+                return group
+
+            dataset = dataset.groupby(dataset.index.year, group_keys=False).apply(interpolate_if_needed)
+            dataset.drop(columns=["NaN_count_pre"], inplace=True)  # Remove helper column after interpolation
+
+            # Reset index and add decade column for summary
+            dataset.reset_index(inplace=True)
+            dataset.rename(columns={'index': 'Fecha'}, inplace=True)
+            dataset["Decade"] = dataset["Fecha"].dt.year // 10 * 10
+            print(dataset)
+            if label=="Caudal":
+                self.caudal_f = dataset[(dataset['Valor'] != 0) & (~dataset['Valor'].isna())]
+                self.caudal_process=dataset.copy() 
+            elif label=="Nivel":
+                self.nivel_f = dataset[(dataset['Valor'] != 0) & (~dataset['Valor'].isna())]
+                self.nivel_process=dataset.copy() 
+
+            # Display Decade-wise statistics
+            decade_stats = dataset.groupby("Decade")["Valor"].describe()
+            self.log_message(f"{label} Data Statistics by Decade:")
+            self.log_message(decade_stats.to_string())
+
+            # Display statistics for consecutive NaNs after interpolation
+            dataset.set_index("Fecha", inplace=True)
+            dataset["NaN_count_post"] = dataset["Valor"].isna().astype(int).groupby(dataset["Valor"].notna().astype(int).cumsum()).cumsum()
+            consecutive_nans_post = dataset.groupby(dataset.index.year)["NaN_count_post"].max()
+            self.log_message(f"{label} Consecutive NaNs per Year After Interpolation:")
+            self.log_message(consecutive_nans_post.to_string())
+
+            # Log completion of processing
+            self.log_message(f"{label} data preprocessing completed with decade-wise summary.")
+        self.clear_logs_2()
+        self.log_message_2("Please click 'Tratamiento de datos' to continue.\n")
+
+        # Enable the next button after preprocessing
+        self.btnPreta.config(state=tk.DISABLED)  # Disable btnCarga after successful file loading
+        self.btnTrata.config(state=tk.NORMAL)  # Enable btnPreta after successful file loading
+    def treat_data(self):
+        """Handle the Tratamiento button click to switch to page 1, filter available years, check data completeness, and fill missing values."""
+        
+        # Switch to the stack widget page with index 1
+        
+        # Initialize text to show usable years
+        usable_years_text = ""
+        self.clear_logs_2()
+        self.log_message_2("\n Click on Confirm to Contine. \n")
+
+
+        if self.caudal_data is not None and self.nivel_data is not None:
+            # Loop through both datasets to calculate completeness and handle imputation
+            for label, dataset in [("Caudal", self.caudal_data), ("Nivel", self.nivel_data)]:
+                # Resample data by year and calculate record counts
+                yearly_data = dataset.set_index("Fecha").resample("Y").count()["Valor"]
+                yearly_data = yearly_data.rename("Records").reset_index()
+                yearly_data["Year"] = yearly_data["Fecha"].dt.year
+                yearly_data["Missing %"] = 100 * (1 - yearly_data["Records"] / 365.25)
+                
+                # Process usable years (less than 20% missing data)
+                usable_years = yearly_data[yearly_data["Missing %"] < 20]["Year"].tolist()
+                if usable_years:
+                    # Add usable years to the text display
+                    usable_years_text += f"{label} Data Usable Years: {', '.join(map(str, sorted(usable_years)))}\n\n"
+                else:
+                    usable_years_text += f"{label} Data Usable Years: None\n"
+
+
+            # Update the availableYears QTextEdit with usable years
+            self.availableYears.config(state=tk.NORMAL)  # Enable text box to update logs
+            self.availableYears.delete(1.0, tk.END)  # Delete all text
+            self.availableYears.insert(tk.END, usable_years_text + "\n")
+            self.availableYears.config(state=tk.DISABLED)  # Disable text box to make it read-only
+
+            
+       
+        else:
+            # Error if data not loaded
+            self.log_message("Error: Either Caudal or Nivel data is not loaded. Please load both datasets first.")
     def log_message(self, message):
         """Helper function to add messages to the Text log area."""
         self.graphInformation.config(state=tk.NORMAL)  # Enable text box to update logs
@@ -368,11 +508,20 @@ class HomePage(tk.Frame):
         self.btnCarga.pack(pady=5)
         self.apply_button_styles(self.btnCarga)
 
-        self.btnPreta = tk.Button(self.button_frame, text="Pretratamiento de datos", bg="blue", fg="white", font=("Helvetica", 12), width=20, state=tk.DISABLED)
+        self.btnPreta = tk.Button(self.button_frame, text="Pretratamiento de datos", bg="blue", fg="white", font=("Helvetica", 12), width=20, state=tk.DISABLED,command=self.preprocess_data)
         self.btnPreta.pack(pady=5)
         self.apply_button_styles(self.btnPreta)
 
-        self.btnTrata = tk.Button(self.button_frame, text="Tratamiento de datos", bg="blue", fg="white", font=("Helvetica", 12), width=20, state=tk.DISABLED, command=self.show_Tratamiento)
+        self.btnTrata = tk.Button(
+            self.button_frame,
+            text="Tratamiento de datos",
+            bg="blue",
+            fg="white",
+            font=("Helvetica", 12),
+            width=20,
+            state=tk.DISABLED,
+            command=lambda: self.combined_function(self.show_Tratamiento, self.treat_data)
+        )
         self.btnTrata.pack(pady=5)
         self.apply_button_styles(self.btnTrata)
 
@@ -426,6 +575,78 @@ class HomePage(tk.Frame):
         self.graphInformation.config(state=tk.DISABLED)  # Making it read-only
         self.graphInformation.pack(fill=tk.BOTH, padx=10, pady=10)
     
+    def get_usable_years(self, dataset):
+        """Helper function to get years with less than 20% missing data from the dataset."""
+        # Resample the dataset by year and calculate missing percentage
+        yearly_data = dataset.set_index("Fecha").resample("Y").count()["Valor"]
+        yearly_data = yearly_data.rename("Records").reset_index()
+        yearly_data["Year"] = yearly_data["Fecha"].dt.year
+        yearly_data["Missing %"] = 100 * (1 - yearly_data["Records"] / 365.25)
+        
+        # Filter years with less than 20% missing data
+        usable_years = yearly_data[yearly_data["Missing %"] < 20]["Year"].tolist()
+        return set(usable_years)
+
+
+    def confirm_years(self):
+        """Check entered years for dry, wet, and normal, and validate against available years for both Caudal and Nivel, considering missing data."""
+        if self.caudal_data is None or self.nivel_data is None:
+            messagebox.showerror("Validation Error", "Caudal or Nivel data is not available for validation.")
+            return False
+
+        # Get usable years for Caudal dataset (less than 20% missing data)
+        usable_years_caudal = self.get_usable_years(self.caudal_data)
+
+        # Get usable years for Nivel dataset (less than 20% missing data)
+        usable_years_nivel = self.get_usable_years(self.nivel_data)
+
+        # Get the union of usable years from both datasets
+        usable_years = usable_years_caudal | usable_years_nivel
+
+        try:
+            self.clear_logs()  # Clear any previous logs
+
+            # Read years from Entry fields and convert them to sets of integers
+            dry_years = set(map(int, self.txtDryYears.get().split(',')))
+            wet_years = set(map(int, self.txtWetYears.get().split(',')))
+            normal_years = set(map(int, self.txtNormalYears.get().split(',')))
+
+            # Check if all entered years are in usable years
+            invalid_years = (dry_years | wet_years | normal_years) - usable_years
+            if invalid_years:
+                messagebox.showerror(
+                    "Invalid Years",
+                    f"Invalid years entered: {', '.join(map(str, invalid_years))}.\n"
+                    "Please only enter usable years."
+                )
+                return False
+            else:
+                self.log_message("Dry, Wet, and Normal Years confirmed successfully and saved.")
+                self.log_message_2("\n\nPlease click 'Procesamiento' to continue.\n\n")
+
+                # Save valid years for further processing
+                self.dry_years = dry_years
+                self.wet_years = wet_years
+                self.normal_years = normal_years
+
+                print("Dry years:", self.dry_years)
+                print("Wet years:", self.wet_years)
+                print("Normal years:", self.normal_years)
+                # After processing, enable the next button and disable the current one
+                self.btnProce.config(state=tk.NORMAL)
+                self.btnTrata.config(state=tk.DISABLED)
+                return True
+
+        except ValueError:
+            messagebox.showerror("Input Error", "Error: Please enter only numeric years, separated by commas.")
+            return False
+
+
+    def combined_function(self, func1, func2):
+        """Call two functions sequentially."""
+        if func1():  # Check if func1 returns True
+            func2()  # Only call func2 if func1 was successful
+
     def open_popup_window(self):
         """Creates and opens a pop-up window containing the combo box and button, centered on the screen."""
         # Create a new top-level window (pop-up)
@@ -539,7 +760,8 @@ class HomePage(tk.Frame):
             highlightbackground="#4d4eba",  # Border color
             highlightthickness=2,  # Border thickness
             cursor="hand2",  # Pointer cursor
-            command=self.show_content_frame
+            command=lambda: self.combined_function(self.confirm_years,self.show_content_frame)
+
         )
         self.btnConfirm.pack(pady=20,padx=20,anchor='e')  # Padding for the button
 
@@ -656,6 +878,7 @@ class HomePage(tk.Frame):
         # Show the Tratamiento page
         if hasattr(self, 'page_Tratamiento'):
             self.page_Tratamiento.pack(fill=tk.BOTH, expand=True)
+        return True
 
 
     def show_procesamiento(self):
