@@ -214,12 +214,14 @@ class HomePage(tk.Frame):
         elif self.current_graph == 3:
             # Display the Nivel heatmap
             self.plot_heatmap(self.nivel_data, 'Nivel')
-            self.root.quit()  # Stop the application after the last graph
+            self.current_graph = 4  # Set to 4 to indicate we're done
 
-
-        # Schedule the next update in 5000 milliseconds (5 seconds)
-        if self.current_graph < 4:  # Continue if we haven't finished
+        # Schedule the next update in 5000 milliseconds (5 seconds) if not finished
+        if self.current_graph < 4:
             self.parent.after(5000, self.show_graph)  # Update graph every 5 seconds
+        else:
+            print("All graphs have been displayed.")  # Add a message for clarity
+
     def plot_data_in_label(self, data, ylabel, title, adjust_units=False):
         """Plot the graph and show it in the QLabel with statistics in QTextEdit."""        
         # Adjust units for 'Nivel' data if needed
