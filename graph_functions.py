@@ -1,14 +1,12 @@
 # graph_functions.py
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
-from PyQt5.QtGui import QPixmap
 import os
 import pandas as pd
 import seaborn as sns
 from scipy.stats import skew, kurtosis, norm
 import numpy as np
 import itertools
-from io import BytesIO
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -17,8 +15,6 @@ import io
 from tkinter import messagebox
 from Clase_turbinaV2 import Turbina
 import matplotlib.pyplot as plt
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-from tkinter import PhotoImage
 from functools import partial
 from PIL import Image, ImageTk
 

@@ -380,9 +380,9 @@ class HomePage(tk.Frame):
                 usable_years = yearly_data[yearly_data["Missing %"] < 20]["Year"].tolist()
                 if usable_years:
                     # Add usable years to the text display
-                    usable_years_text += f"{label} Data Usable Years: {', '.join(map(str, sorted(usable_years)))}\n\n"
+                    usable_years_text += f"Años Utilizables de Datos {label}: {', '.join(map(str, sorted(usable_years)))}\n\n"
                 else:
-                    usable_years_text += f"{label} Data Usable Years: None\n"
+                    usable_years_text += f"Años Utilizables de Datos {label}: None\n"
 
 
             # Update the availableYears QTextEdit with usable years
@@ -451,7 +451,7 @@ class HomePage(tk.Frame):
     def confirm_years(self):
         """Check entered years for dry, wet, and normal, and validate against available years for both Caudal and Nivel, considering missing data."""
         if self.caudal_data is None or self.nivel_data is None:
-            messagebox.showerror("Validation Error", "Caudal or Nivel data is not available for validation.")
+            messagebox.showerror("Error de Validación", "Los datos de Caudal o Nivel no están disponibles para la validación.")
             return False
 
         # Get usable years for Caudal dataset (less than 20% missing data)
@@ -475,13 +475,14 @@ class HomePage(tk.Frame):
             invalid_years = (años_secos | años_humedos | años_normales) - usable_years
             if invalid_years:
                 messagebox.showerror(
-                    "Invalid Years",
-                    f"Invalid years entered: {', '.join(map(str, invalid_years))}.\n"
-                    "Please only enter usable years."
-                )
+                "Años Inválidos",
+                f"Años ingresados no válidos: {', '.join(map(str, invalid_years))}.\n"
+                "Por favor, ingrese únicamente años utilizables."
+            )
+
                 return False
             else:
-                self.registrar_mensaje("Error: Los datos de Caudal o Nivel no están cargados. Por favor, cargue ambos conjuntos de datos primero.")
+                self.registrar_mensaje("Años Secos, Húmedos y Normales confirmados con éxito y guardados.")
                 self.registrar_mensaje_2("\nPor favor, haga clic en 'Procesamiento' para continuar.\n\n")
 
                 # Save valid years for further processing
@@ -511,7 +512,7 @@ class HomePage(tk.Frame):
         """Creates and opens a pop-up window containing the combo box and button, centered on the screen."""
         # Create a new top-level window (pop-up)
         popup = tk.Toplevel(self.bg)
-        popup.title("Select Turbine Graph")  # Set title for the pop-up window
+        popup.title("Seleccionar Gráfico de Turbina")  # Set title for the pop-up window
 
         # Set the size for the pop-up window (adjust as needed)
         popup_width = 400
@@ -537,14 +538,14 @@ class HomePage(tk.Frame):
         center_frame.pack(expand=True)  # This will center the contents within input_container
 
         # Combo Box for selecting a processing method
-        self.cmbxTurbineGraph = self.create_combo_box(center_frame, "Select Turbine Graphs", 
-                                                    ["All", "SmartFreestream", "SmartMonofloat", "EnviroGen005series", 
+        self.cmbxTurbineGraph = self.create_combo_box(center_frame, "Seleccionar Gráficos de Turbinas", 
+                                                    ["Todos", "SmartFreestream", "SmartMonofloat", "EnviroGen005series", 
                                                     "Hydroquest1.4", "EVG-050H", "EVG-050H"])
 
         # Confirm button
         self.btnConfirm_2 = tk.Button(
             center_frame,
-            text="Confirm",
+            text="Confirmar",
             bg="#4d4eba",  # Background color
             fg="white",  # Text color
             font=("MS Shell Dlg 2", 12),
@@ -569,11 +570,11 @@ class HomePage(tk.Frame):
         if not self.turbine_option:
             # Show an error message if no option is selected
             from tkinter import messagebox
-            messagebox.showerror("Selection Error", "Please select a turbine graph before confirming.")
+            messagebox.showerror("Error de Selección", "Por favor, seleccione un gráfico de turbina antes de confirmar.")
             return
 
         # Save the selected option
-        print(f"Selected turbine graph: {self.turbine_option}")
+        print(f"Seleccionar Gráfico de Turbina: {self.turbine_option}")
 
         # Update button states
         self.btnResult.config(state=tk.NORMAL)  # Activate btnResult
@@ -606,7 +607,7 @@ class HomePage(tk.Frame):
         # Check if all graphs are displayed
         if self.graph_index >= len(self.graphs):
             # Handle turbine plots after regular graphs
-            if self.turbine_option == 'All':
+            if self.turbine_option == 'Todos':
                 # Define the turbine options
                 turbine_options = [
                     "SmartFreestream",
@@ -739,14 +740,14 @@ class HomePage(tk.Frame):
         self.page_Tratamiento.pack_forget()  # Initially hidden
 
         # Button for "View All Graphs"
-        self.btnViewAllGraphs = tk.Button(self.content_frame, text="View All Graphs", bg="#4d4eba", fg="white", font=("MS Shell Dlg 2", 12), width=20, relief="flat", bd=2, highlightbackground="#4d4eba", highlightthickness=2, cursor="hand2", command=lambda: parent.show_page(ResultsPage))
+        self.btnViewAllGraphs = tk.Button(self.content_frame, text="Ver todos los gráficos", bg="#4d4eba", fg="white", font=("MS Shell Dlg 2", 12), width=20, relief="flat", bd=2, highlightbackground="#4d4eba", highlightthickness=2, cursor="hand2", command=lambda: parent.show_page(ResultsPage))
         self.btnViewAllGraphs.pack(side=tk.TOP, pady=10, padx=10, anchor="e")
 
         # Add hover effects specific to btnViewAllGraphs
         self.btnViewAllGraphs.bind("<Enter>", lambda e: self.on_view_all_graphs_hover())
         self.btnViewAllGraphs.bind("<Leave>", lambda e: self.on_view_all_graphs_leave())
 
-        self.lblGraph = tk.Label(self.content_frame, text="Graph will be displayed here", bg="#f5f5f5", font=("MS Shell Dlg 2", 14), borderwidth=2, relief="solid")
+        self.lblGraph = tk.Label(self.content_frame, text="El gráfico se mostrará aquí", bg="#f5f5f5", font=("MS Shell Dlg 2", 14), borderwidth=2, relief="solid")
         self.lblGraph.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
 
@@ -759,7 +760,7 @@ class HomePage(tk.Frame):
         self.info_frame.pack_propagate(False)
 
         # Add a Text widget to show graph information within the info frame
-        self.graphInformation = tk.Text(self.info_frame, bg="#e9ecef", font=("MS Shell Dlg 2", 11), wrap="word", fg="#6c757d")
+        self.graphInformation = tk.Text(self.info_frame, bg="#e9ecef", font=("MS Shell Dlg 2", 11), wrap="word",padx=10, pady=5, fg="#6c757d")
         self.graphInformation.config(state=tk.DISABLED)  # Make it read-only
         self.graphInformation.pack(fill=tk.BOTH, expand=True)
 
@@ -809,14 +810,15 @@ class HomePage(tk.Frame):
         input_container.pack(fill=tk.BOTH, expand=True, pady=30)  # Center the container vertically
 
         # Input fields
-        self.txtDryYears = self.create_input_field(input_container, "Dry Years","Enter Dry Years (Comma separate)")
-        self.txtWetYears = self.create_input_field(input_container, "Wet Years","Enter Wet Years (Comma separate)")
-        self.txtNormalYears = self.create_input_field(input_container, "Normal Years","Enter Normal Years (Comma separate)")
+        self.txtDryYears = self.create_input_field(input_container, "Años Secos", "Ingrese los Años Secos (Separados por comas)")
+        self.txtWetYears = self.create_input_field(input_container, "Años Húmedos", "Ingrese los Años Húmedos (Separados por comas)")
+        self.txtNormalYears = self.create_input_field(input_container, "Años Normales", "Ingrese los Años Normales (Separados por comas)")
+
 
         # Confirm button
         self.btnConfirm = tk.Button(
             input_container,
-            text="Confirm",
+            text="Confirmar",
             bg="#4d4eba",  # Background color
             fg="white",  # Text color
             font=("MS Shell Dlg 2", 12),
@@ -892,14 +894,14 @@ class HomePage(tk.Frame):
         center_frame.pack(expand=True)  # This will center the contents within input_container
 
         # Combo Box for selecting a processing method
-        self.cmbxTurbineGraph = self.create_combo_box(center_frame, "Select Turbine Graphs", 
+        self.cmbxTurbineGraph = self.create_combo_box(center_frame, "Seleccionar Gráficos de Turbinas", 
                                                     ["All", "SmartFreestream", "SmartMonofloat", "EnviroGen005series", 
                                                     "Hydroquest1.4", "EVG-050H", "EVG-050H"])
 
         # Confirm button
         self.btnConfirm_2 = tk.Button(
             center_frame,
-            text="Confirm",
+            text="Confirmar",
             bg="#4d4eba",  # Background color
             fg="white",  # Text color
             font=("MS Shell Dlg 2", 12),
@@ -1178,7 +1180,7 @@ class ResultsPage(tk.Frame):
         # Label for graph information
         self.lblGraph = tk.Label(
             self.content_frame, 
-            text="Graph will be displayed here", 
+            text="El gráfico se mostrará aquí", 
             bg="lightgray", 
             font=("MS Shell Dlg 2", 14), 
             borderwidth=2, 
@@ -1192,6 +1194,7 @@ class ResultsPage(tk.Frame):
             font=("MS Shell Dlg 2", 11),
             height=10,
             width=50,
+            padx=10, pady=5,
             bg="#e9ecef",
             fg="#6c757d"
         )
