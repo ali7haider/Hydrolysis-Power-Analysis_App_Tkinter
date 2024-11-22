@@ -1,33 +1,16 @@
 import tkinter as tk
 from tkinter import ttk
-import sys
 import os
 import pandas as pd
-from PyQt5 import QtWidgets, uic
-from PyQt5.QtWidgets import QFileDialog,QTreeWidget, QTreeWidgetItem,QMessageBox
-from PyQt5.QtWidgets import QLabel
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 import pandas as pd
-from PyQt5.QtGui import QPixmap
-from io import BytesIO
 from PIL import Image
-from PyQt5.QtCore import QTimer
-from PyQt5.QtGui import QImage, QPixmap
 import seaborn as sns
 import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
-from scipy.stats import skew, kurtosis, norm
-import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-import itertools
-from PyQt5.QtCore import Qt
-import matplotlib.dates as mdates
-from Clase_turbinaV2 import Turbina
 import tkinter.filedialog as filedialog
 from PIL import Image, ImageTk  # To work with images in Tkinter
 from tkinter import messagebox
-from graph_functions import (graficar_dispersión_caudal_por_década,graficar_dispersión_nivel_por_década,graficar_dispersion_anual_caudal,
+from graph_functions import (graficar_datos_en_etiqueta,graficar_mapa_de_calor,graficar_dispersión_caudal_por_década,graficar_dispersión_nivel_por_década,graficar_dispersion_anual_caudal,
                              graficar_dispersión_anual_nivel,mostrar_estadísticas,graficar_distribucion_caudal,graficar_distribución_nivel,
                              graficar_densidad_probabilidad_caudal_por_década,graficar_densidad_probabilidad_nivel_por_década,
                              graficar_comportamiento_anual_por_década_caudal,graficar_comportamiento_anual_por_década_nivel,graficar_perfil_hidrológico_caudal,
@@ -68,15 +51,21 @@ class HydropowerApp(tk.Tk):
             # Set the position of the main window
             self.geometry(f'{window_width}x{window_height}+{position_left}+{position_top}')
     def create_pages(self):
-        # Register all pages
-        for Page in (HomePage, ResultsPage):
-            page_instance = Page(self)
-            self.pages[Page] = page_instance
-            page_instance.place(relwidth=1, relheight=1)
+        # First, create the HomePage instance
+        home_page = HomePage(self)
+        self.pages[HomePage] = home_page
+        home_page.place(relwidth=1, relheight=1)
+
+        # Pass the HomePage instance when creating ResultsPage
+        results_page = ResultsPage(self, home_page)
+        self.pages[ResultsPage] = results_page
+        results_page.place(relwidth=1, relheight=1)
 
     def show_page(self, page_class):
         # Bring the desired page to the front
         page = self.pages[page_class]
+        if isinstance(page, ResultsPage):
+            page.populate_tree()  # Populate the Treeview with updated data
         page.tkraise()
 class HomePage(tk.Frame):
     def __init__(self, parent):
@@ -106,10 +95,35 @@ class HomePage(tk.Frame):
         self.velocidad = None
 
         self.current_graph = 0  # Start with Caudal graph
+        # Define the graphs to cycle through
+        self.graphs = [
+        {"function": graficar_dispersión_caudal_por_década, "titulo": "Serie Decadal de Caudal", "décadas": [1970, 1980, 1990]},
+        {"function": graficar_dispersión_nivel_por_década, "titulo": "Serie Decadal de Nivel", "décadas": [1970, 1980, 1990]},
+        {"function": graficar_dispersion_anual_caudal, "titulo": "Serie Anual de Caudal", "décadas": []},
+        {"function": graficar_dispersión_anual_nivel, "titulo": "Serie Anual de Nivel", "décadas": []},
+        {"function": mostrar_estadísticas, "titulo": "Resumen General de Estadísticas", "décadas": []},
+        {"function": graficar_distribucion_caudal, "titulo": "Distribución con KDE y Curva Normal - Caudal", "décadas": []},
+        {"function": graficar_distribución_nivel, "titulo": "Análisis de Distribución - Nivel", "décadas": []},
+        {"function": graficar_densidad_probabilidad_caudal_por_década, "titulo": "Probabilidad de Densidad Decadal - Caudal", "décadas": [1970, 1980, 1990]},
+        {"function": graficar_densidad_probabilidad_nivel_por_década, "titulo": "Probabilidad de Densidad Decadal - Nivel", "décadas": [1970, 1980, 1990]},
+        {"function": graficar_comportamiento_anual_por_década_caudal, "titulo": "Comportamiento Anual de Caudal por Década", "décadas": [1970, 1980, 1990]},
+        {"function": graficar_comportamiento_anual_por_década_nivel, "titulo": "Comportamiento Anual de Nivel por Década", "décadas": [1970, 1980, 1990]},
+        {"function": graficar_perfil_hidrológico_caudal, "titulo": "Perfil Hidrológico Anual - Caudal", "décadas": []},
+        {"function": graficar_perfil_hidrológico_nivel, "titulo": "Perfil Hidrológico Anual - Nivel", "décadas": []},
+        {"function": graficar_perfil_anual_dias_caudal, "titulo": "Perfil Hidrológico Anual por Días - Caudal", "décadas": []},
+        {"function": graficar_perfil_anual_dias_nivel, "titulo": "Perfil Hidrológico Anual por Días - Nivel", "décadas": []},
+        {"function": mostrar_estadísticas_nominales, "titulo": "Estadísticas Nominales Caudal", "décadas": []},
+        {"function": calcular_P95_y_mostrar, "titulo": "Gráfico de P95", "décadas": []},
+        {"function": mostrar_caudal_promedio, "titulo": "Gráfico de Caudal Promedio", "décadas": []},
+        {"function": mostrar_nivel_P95, "titulo": "Gráfico de Nivel 95", "décadas": []},
+        {"function": mostrar_velocidad_flujo, "titulo": "Gráfico de Velocidad de Flujo", "décadas": []},
+        {"function": mostrar_comportamiento_mensual, "titulo": "Gráfico de Comportamiento Mensual", "décadas": []},
+        {"function": mostrar_velocidad_promedio_mensual, "titulo": "Gráfico de Velocidad Promedio Mensual", "décadas": []},
+    ]
         self.turbine_graphs = [
         {
             "function": calculate_and_display_turbine_power,
-            "title": "Turbine Power Output Over Time",
+            "titulo": "Turbine Power Output Over Time",
             "turbine_options": [
                 "SmartFreestream",
                 "SmartMonofloat",
@@ -223,19 +237,19 @@ class HomePage(tk.Frame):
         """Update the graph sequentially every 5 seconds using Tkinter's after() method."""
         if self.current_graph == 0:
             # Display Caudal line graph
-            self.plot_data_in_label(self.caudal_data, ylabel='Caudal (m3/s)', title='Gráfico de Línea de Caudal')
+            graficar_datos_en_etiqueta(self,self.caudal_data, etiqueta_y='Caudal (m3/s)', titulo='Gráfico de Línea de Caudal')
             self.current_graph = 1
         elif self.current_graph == 1:
             # Display Nivel line graph
-            self.plot_data_in_label(self.nivel_data, ylabel='Nivel (m)', title='Gráfico de Línea de Nivel')
+            graficar_datos_en_etiqueta(self,self.nivel_data, etiqueta_y='Nivel (m)', titulo='Gráfico de Línea de Nivel')
             self.current_graph = 2
         elif self.current_graph == 2:
             # Display the Caudal heatmap
-            self.plot_heatmap(self.caudal_data, 'Caudal')
+            graficar_mapa_de_calor(self,self.caudal_data, 'Caudal')
             self.current_graph = 3
         elif self.current_graph == 3:
             # Display the Nivel heatmap
-            self.plot_heatmap(self.nivel_data, 'Nivel')
+            graficar_mapa_de_calor(self,self.nivel_data, 'Nivel')
             self.current_graph = 4  # Set to 4 to indicate we're done
 
         # Schedule the next update in 5000 milliseconds (5 seconds) if not finished
@@ -244,98 +258,7 @@ class HomePage(tk.Frame):
         else:
             print("All graphs have been displayed.")  # Add a message for clarity
 
-    def plot_data_in_label(self, data, ylabel, title, adjust_units=False):
-        """Plot the graph and show it in the QLabel with statistics in QTextEdit."""        
-        # Adjust units for 'Nivel' data if needed
-        if adjust_units:
-            data = data.copy()  # Copy to avoid modifying original data
-            data["Valor"] = data["Valor"] / 100
-        
-        # Create the plot
-        fig, ax = plt.subplots(figsize=(10, 6))
-        ax.plot(data['Fecha'], data['Valor'])
-        ax.set_xlabel('Fecha')
-        ax.set_ylabel(ylabel)
-        ax.set_title(title)
-        ax.grid(True, which='both', linestyle='--', linewidth=0.5)
-        
-        temp_filename = "temp_plot.png"
-        fig.savefig(temp_filename)
-
-        # Load the image with PIL
-        image = Image.open(temp_filename)
-
-        # Get the size of the label (self.lblGraph)
-        label_width = self.lblGraph.winfo_width()
-        label_height = self.lblGraph.winfo_height()
-
-        # Resize the image to fit within the label size
-        image_resized = image.resize((label_width, label_height), Image.Resampling.LANCZOS)
-
-        # Convert the resized image to a Tkinter-compatible format
-        image_tk = ImageTk.PhotoImage(image_resized)
-        
-        # Set the image in the Tkinter label (assuming self.lblGraph is the label)
-        self.lblGraph.config(image=image_tk)
-        self.lblGraph.image = image_tk  # Keep a reference to avoid garbage collection
-        
-        # Delete the temporary file
-        os.remove(temp_filename)
-        
-        # Display statistics in QTextEdit
-        stats = data.describe()
-        self.mostrar_información(f"{ylabel} Data Statistics:\n{stats.to_string()}")
-
-        
-        # Close the figure to free memory
-        plt.close(fig)
-
-    def plot_heatmap(self, dataset, label):
-        """Plot a heatmap for missing values in the dataset and display it in lblGraph."""
-        dataset['Fecha'] = pd.to_datetime(dataset['Fecha'], errors='coerce')
-        dataset['Year'] = dataset['Fecha'].dt.year
-        dataset['DayOfYear'] = dataset['Fecha'].dt.dayofyear
-        dataset_grouped = dataset.groupby(['Year', 'DayOfYear'])['Valor'].mean().reset_index()
-        dataset_pivot = dataset_grouped.pivot(index='Year', columns='DayOfYear', values='Valor')
-        
-        plt.figure(figsize=(10, 6))
-        sns.heatmap(dataset_pivot.isnull(), cmap=sns.color_palette(["#add8e6", "#000000"]), cbar=False)
-        plt.title(f'Visualización de Valores Faltantes en el DataFrame de {label}')
-        plt.xlabel('Día del Año')
-        plt.ylabel('Año')
-        
-        # Save the figure to a temporary file
-        temp_filename = "temp_heatmap.png"
-        plt.savefig(temp_filename)
-
-        # Load the image with PIL
-        image = Image.open(temp_filename)
-
-        # Get the size of the label (self.lblGraph)
-        label_width = self.lblGraph.winfo_width()
-        label_height = self.lblGraph.winfo_height()
-
-        # Resize the image to fit within the label size
-        image_resized = image.resize((label_width, label_height),  Image.Resampling.LANCZOS)
-
-        # Convert the resized image to a Tkinter-compatible format
-        image_tk = ImageTk.PhotoImage(image_resized)
-        
-        # Set the image in the Tkinter label (assuming self.lblGraph is the label)
-        self.lblGraph.config(image=image_tk)
-        self.lblGraph.image = image_tk  # Keep a reference to avoid garbage collection
-        
-        # Delete the temporary file
-        os.remove(temp_filename)
-        
-        description = dataset_grouped['Valor'].describe()
-        graph_informtaion = ''
-        graph_informtaion += f"{label} Data - Heatmap of Missing Values:\n"
-        graph_informtaion += f"Visualizes missing data for each day of the year across years.\n"
-        graph_informtaion += f"Descriptive Statistics of {label} Data:\n"
-        graph_informtaion += f"Count: {description['count']}, Mean: {description['mean']}, Std: {description['std']}, Min: {description['min']}, Max: {description['max']}"
-        self.mostrar_información(f"{graph_informtaion}")
-
+    
 
     def preprocess_data(self):
         """Function for the 'Pretratamiento' step, handling data completeness checks and interpolation."""
@@ -511,19 +434,7 @@ class HomePage(tk.Frame):
         self.graphInformation.delete(1.0, tk.END)  # Clear the content
         self.graphInformation.config(state=tk.DISABLED)  # Disable the text box again
     
-    def mostrar_información_2(self, message):
-        self.limpiar_información_2()
-        """Display the given message in the graph information area (Text widget)."""
-        self.graphInformation_2.config(state=tk.NORMAL)  # Enable text box to update
-        self.graphInformation_2.delete(1.0, tk.END)  # Clear any previous content
-        self.graphInformation_2.insert(tk.END, message)  # Insert new message
-        self.graphInformation_2.config(state=tk.DISABLED)  # Disable text box to make it read-only
-
-    def limpiar_información_2(self):
-        """Clear the information displayed in the graph information area (Text widget)."""
-        self.graphInformation_2.config(state=tk.NORMAL)
-        self.graphInformation_2.delete(1.0, tk.END)  # Clear the content
-        self.graphInformation_2.config(state=tk.DISABLED)  # Disable the text box again
+    
     
     def get_usable_years(self, dataset):
         """Helper function to get years with less than 20% missing data from the dataset."""
@@ -637,7 +548,7 @@ class HomePage(tk.Frame):
             text="Confirm",
             bg="#4d4eba",  # Background color
             fg="white",  # Text color
-            font=("Helvetica", 12),
+            font=("MS Shell Dlg 2", 12),
             width=10,
             relief="flat",  # Flat border
             bd=2,  # Border width
@@ -681,31 +592,7 @@ class HomePage(tk.Frame):
         self.registrar_mensaje_2("Showing Results (Each graph will change every 5 seconds)\n")
         self.btnResult.config(state=tk.DISABLED)  # Disable btnResult to prevent re-clicking
 
-        # Define the graphs to cycle through
-        self.graphs = [
-        {"function": graficar_dispersión_caudal_por_década, "titulo": "Serie Decadal de Caudal", "décadas": [1970, 1980, 1990]},
-        {"function": graficar_dispersión_nivel_por_década, "titulo": "Serie Decadal de Nivel", "décadas": [1970, 1980, 1990]},
-        {"function": graficar_dispersion_anual_caudal, "titulo": "Serie Anual de Caudal", "décadas": []},
-        {"function": graficar_dispersión_anual_nivel, "titulo": "Serie Anual de Nivel", "décadas": []},
-        {"function": mostrar_estadísticas, "titulo": "Resumen General de Estadísticas", "décadas": []},
-        {"function": graficar_distribucion_caudal, "titulo": "Distribución con KDE y Curva Normal - Caudal", "décadas": []},
-        {"function": graficar_distribución_nivel, "titulo": "Análisis de Distribución - Nivel", "décadas": []},
-        {"function": graficar_densidad_probabilidad_caudal_por_década, "titulo": "Probabilidad de Densidad Decadal - Caudal", "décadas": [1970, 1980, 1990]},
-        {"function": graficar_densidad_probabilidad_nivel_por_década, "titulo": "Probabilidad de Densidad Decadal - Nivel", "décadas": [1970, 1980, 1990]},
-        {"function": graficar_comportamiento_anual_por_década_caudal, "titulo": "Comportamiento Anual de Caudal por Década", "décadas": [1970, 1980, 1990]},
-        {"function": graficar_comportamiento_anual_por_década_nivel, "titulo": "Comportamiento Anual de Nivel por Década", "décadas": [1970, 1980, 1990]},
-        {"function": graficar_perfil_hidrológico_caudal, "titulo": "Perfil Hidrológico Anual - Caudal", "décadas": []},
-        {"function": graficar_perfil_hidrológico_nivel, "titulo": "Perfil Hidrológico Anual - Nivel", "décadas": []},
-        {"function": graficar_perfil_anual_dias_caudal, "titulo": "Perfil Hidrológico Anual por Días - Caudal", "décadas": []},
-        {"function": graficar_perfil_anual_dias_nivel, "titulo": "Perfil Hidrológico Anual por Días - Nivel", "décadas": []},
-        {"function": mostrar_estadísticas_nominales, "titulo": "Estadísticas Nominales Caudal - Nivel", "décadas": []},
-        {"function": calcular_P95_y_mostrar, "titulo": "Gráfico de P95", "décadas": []},
-        {"function": mostrar_caudal_promedio, "titulo": "Gráfico de Caudal Promedio", "décadas": []},
-        {"function": mostrar_nivel_P95, "titulo": "Gráfico de Nivel 95", "décadas": []},
-        {"function": mostrar_velocidad_flujo, "titulo": "Gráfico de Velocidad de Flujo", "décadas": []},
-        {"function": mostrar_comportamiento_mensual, "titulo": "Gráfico de Comportamiento Mensual", "décadas": []},
-        {"function": mostrar_velocidad_promedio_mensual, "titulo": "Gráfico de Velocidad Promedio Mensual", "décadas": []},
-    ]
+        
 
 
         # Initialize variables for cycling through graphs and decades
@@ -738,7 +625,8 @@ class HomePage(tk.Frame):
                 if self.turbine_index < len(turbine_options):
                     # Display the turbine plot
                     current_turbine = turbine_options[self.turbine_index]
-                    calculate_and_display_turbine_power(self, turbine_options=current_turbine, flag=False, index=self.turbine_index)
+                    print(current_turbine)
+                    calculate_and_display_turbine_power(self,None, current_turbine,titulo='', bandera=False,index=self.turbine_index)
 
                     # Move to the next turbine
                     self.turbine_index += 1
@@ -753,7 +641,7 @@ class HomePage(tk.Frame):
                     return
             else:
                 # Handle single turbine or default case
-                calculate_and_display_turbine_power(self, self.turbine_option)
+                calculate_and_display_turbine_power(self,None, self.turbine_option,titulo='', bandera=False,index=0)
                 return
 
         # Regular graph display logic
@@ -765,13 +653,13 @@ class HomePage(tk.Frame):
         # Call the function with the instance and additional parameters
         if decades:
             current_decade = decades[self.decade_index]
-            graph_function(self, title, current_decade, bandera=False)
+            graph_function(self, None,title, current_decade, bandera=False)
             self.decade_index += 1
             if self.decade_index >= len(decades):
                 self.decade_index = 0
                 self.graph_index += 1
         else:
-            graph_function(self, title)
+            graph_function(self, None,title)
             self.graph_index += 1
 
         # Schedule the next graph update after 1 second
@@ -789,7 +677,7 @@ class HomePage(tk.Frame):
         # Create a user section
         user_frame = tk.Frame(self.frame, bg="white", height=5)
         user_frame.pack(fill=tk.BOTH, expand=False, padx=10, pady=10)
-        user_label = tk.Label(user_frame, text="Usuario", bg="white", fg="black", font=("Helvetica", 14, "bold"), anchor="w")
+        user_label = tk.Label(user_frame, text="Usuario", bg="white", fg="black", font=("MS Shell Dlg 2", 14, "bold"), anchor="w")
         user_label.pack(fill=tk.BOTH, expand=False)
 
         # Create the button section
@@ -797,11 +685,11 @@ class HomePage(tk.Frame):
         self.button_frame.pack(fill=tk.Y, expand=True, pady=(80, 0))  # Top padding: 20, Bottom padding: 0
 
         # Create the buttons (equivalent to btnCarga, btnPreta, etc.)
-        self.btnCarga = tk.Button(self.button_frame, text="Carga de archivos", bg="blue", fg="white", font=("Helvetica", 12), width=20, command=self.load_data)
+        self.btnCarga = tk.Button(self.button_frame, text="Carga de archivos", bg="blue", fg="white", font=("MS Shell Dlg 2", 12), width=20, command=self.load_data)
         self.btnCarga.pack(pady=5)
         self.apply_button_styles(self.btnCarga)
 
-        self.btnPreta = tk.Button(self.button_frame, text="Pretratamiento de datos", bg="blue", fg="white", font=("Helvetica", 12), width=20, state=tk.DISABLED,command=self.preprocess_data)
+        self.btnPreta = tk.Button(self.button_frame, text="Pretratamiento de datos", bg="blue", fg="white", font=("MS Shell Dlg 2", 12), width=20, state=tk.DISABLED,command=self.preprocess_data)
         self.btnPreta.pack(pady=5)
         self.apply_button_styles(self.btnPreta)
 
@@ -810,7 +698,7 @@ class HomePage(tk.Frame):
             text="Tratamiento de datos",
             bg="blue",
             fg="white",
-            font=("Helvetica", 12),
+            font=("MS Shell Dlg 2", 12),
             width=20,
             state=tk.DISABLED,
             command=lambda: self.combined_function(self.show_Tratamiento, self.treat_data)
@@ -818,15 +706,15 @@ class HomePage(tk.Frame):
         self.btnTrata.pack(pady=5)
         self.apply_button_styles(self.btnTrata)
 
-        self.btnProce = tk.Button(self.button_frame, text="Procesamiento", bg="blue", fg="white", font=("Helvetica", 12), width=20, state=tk.DISABLED, command=self.open_popup_window)
+        self.btnProce = tk.Button(self.button_frame, text="Procesamiento", bg="blue", fg="white", font=("MS Shell Dlg 2", 12), width=20, state=tk.DISABLED, command=self.open_popup_window)
         self.btnProce.pack(pady=5)
         self.apply_button_styles(self.btnProce)
 
-        self.btnResult = tk.Button(self.button_frame, text="Resultados", bg="blue", fg="white", font=("Helvetica", 12), width=20, state=tk.DISABLED,command=self.show_results)
+        self.btnResult = tk.Button(self.button_frame, text="Resultados", bg="blue", fg="white", font=("MS Shell Dlg 2", 12), width=20, state=tk.DISABLED,command=self.show_results)
         self.btnResult.pack(pady=5)
         self.apply_button_styles(self.btnResult)
         
-        self.btnSimulator = tk.Button(self.button_frame, text="Simular",bg="#4d4eba",fg="white", font=("Helvetica", 12), width=20, relief="flat", bd=2, highlightbackground="#4d4eba", highlightthickness=2, cursor="hand2")
+        self.btnSimulator = tk.Button(self.button_frame, text="Simular",bg="#4d4eba",fg="white", font=("MS Shell Dlg 2", 12), width=20, relief="flat", bd=2, highlightbackground="#4d4eba", highlightthickness=2, cursor="hand2")
         self.btnSimulator.pack(pady=5, anchor='e')
 
         # Add hover effects specific to btnSimulator
@@ -836,7 +724,7 @@ class HomePage(tk.Frame):
         # Create the log section (Text widget)
         text_frame = tk.Frame(self.frame, bg="white", width=35)
         text_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
-        self.textEditLogs = tk.Text(text_frame, height=10, width=35, bg="#e9ecef",font=("Helvetica", 11), wrap="word",padx=10, pady=5, fg="#6c757d")
+        self.textEditLogs = tk.Text(text_frame, height=10, width=35, bg="#e9ecef",font=("MS Shell Dlg 2", 11), wrap="word",padx=10, pady=5, fg="#6c757d")
         self.textEditLogs.config(state=tk.DISABLED)  # Making it read-only
         self.textEditLogs.pack(fill=tk.BOTH, pady=10, expand=True)
 
@@ -852,14 +740,14 @@ class HomePage(tk.Frame):
         self.page_Tratamiento.pack_forget()  # Initially hidden
 
         # Button for "View All Graphs"
-        self.btnViewAllGraphs = tk.Button(self.content_frame, text="View All Graphs", bg="#4d4eba", fg="white", font=("Helvetica", 12), width=20, relief="flat", bd=2, highlightbackground="#4d4eba", highlightthickness=2, cursor="hand2", command=lambda: parent.show_page(ResultsPage))
+        self.btnViewAllGraphs = tk.Button(self.content_frame, text="View All Graphs", bg="#4d4eba", fg="white", font=("MS Shell Dlg 2", 12), width=20, relief="flat", bd=2, highlightbackground="#4d4eba", highlightthickness=2, cursor="hand2", command=lambda: parent.show_page(ResultsPage))
         self.btnViewAllGraphs.pack(side=tk.TOP, pady=10, padx=10, anchor="e")
 
         # Add hover effects specific to btnViewAllGraphs
         self.btnViewAllGraphs.bind("<Enter>", lambda e: self.on_view_all_graphs_hover())
         self.btnViewAllGraphs.bind("<Leave>", lambda e: self.on_view_all_graphs_leave())
 
-        self.lblGraph = tk.Label(self.content_frame, text="Graph will be displayed here", bg="#f5f5f5", font=("Helvetica", 14), borderwidth=2, relief="solid")
+        self.lblGraph = tk.Label(self.content_frame, text="Graph will be displayed here", bg="#f5f5f5", font=("MS Shell Dlg 2", 14), borderwidth=2, relief="solid")
         self.lblGraph.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
 
@@ -872,7 +760,7 @@ class HomePage(tk.Frame):
         self.info_frame.pack_propagate(False)
 
         # Add a Text widget to show graph information within the info frame
-        self.graphInformation = tk.Text(self.info_frame, bg="#e9ecef", font=("Helvetica", 11), wrap="word", fg="#6c757d")
+        self.graphInformation = tk.Text(self.info_frame, bg="#e9ecef", font=("MS Shell Dlg 2", 11), wrap="word", fg="#6c757d")
         self.graphInformation.config(state=tk.DISABLED)  # Make it read-only
         self.graphInformation.pack(fill=tk.BOTH, expand=True)
 
@@ -885,7 +773,7 @@ class HomePage(tk.Frame):
             fg="black", 
             bd=2,  # border width
             relief="solid",  # solid border to replicate Qt style
-            font=("Helvetica", 12),  # Font size and style
+            font=("MS Shell Dlg 2", 12),  # Font size and style
             padx=3,  # padding inside button
             pady=3,  # padding inside button
             highlightthickness=0,  # no focus highlight border
@@ -911,7 +799,7 @@ class HomePage(tk.Frame):
 
         # Text widget
         self.availableYears = tk.Text(
-            page, height=10, width=50, bg="#e9ecef", wrap="word", font=("Helvetica", 11),padx=10, pady=5, fg="#6c757d"
+            page, height=10, width=50, bg="#e9ecef", wrap="word", font=("MS Shell Dlg 2", 11),padx=10, pady=5, fg="#6c757d"
         )
         self.availableYears.insert("1.0", "Available years information will go here.")
         self.availableYears.config(state=tk.DISABLED)
@@ -932,7 +820,7 @@ class HomePage(tk.Frame):
             text="Confirm",
             bg="#4d4eba",  # Background color
             fg="white",  # Text color
-            font=("Helvetica", 12),
+            font=("MS Shell Dlg 2", 12),
             width=15,
             
             relief="flat",  # Flat border
@@ -953,7 +841,7 @@ class HomePage(tk.Frame):
         frame.pack(pady=10)  # Add vertical spacing between input fields
 
         # Label (above the entry field)
-        label = tk.Label(frame, text=label_text, bg="white", font=("Helvetica", 12), anchor="w", justify="left")
+        label = tk.Label(frame, text=label_text, bg="white", font=("MS Shell Dlg 2", 12), anchor="w", justify="left")
         label.pack(fill=tk.X, padx=20,pady=5, anchor="w")  # Align to the left with padding
 
         # Entry field with placeholder functionality
@@ -962,7 +850,7 @@ class HomePage(tk.Frame):
 
         entry = tk.Entry(
             entry_frame,
-            font=("Helvetica", 13),
+            font=("MS Shell Dlg 2", 13),
             bg="white",
             fg="grey",  # Initial placeholder color
             relief="flat",  # Remove border
@@ -1015,7 +903,7 @@ class HomePage(tk.Frame):
             text="Confirm",
             bg="#4d4eba",  # Background color
             fg="white",  # Text color
-            font=("Helvetica", 12),
+            font=("MS Shell Dlg 2", 12),
             width=10,
             relief="flat",  # Flat border
             bd=2,  # Border width
@@ -1034,11 +922,11 @@ class HomePage(tk.Frame):
         frame.pack(pady=10)  # Add vertical spacing between input fields
 
         # Label (above the combo box)
-        label = tk.Label(frame, text=label_text, bg="white", font=("Helvetica", 12), anchor="w")
+        label = tk.Label(frame, text=label_text, bg="white", font=("MS Shell Dlg 2", 12), anchor="w")
         label.pack(fill=tk.X, padx=20, pady=5, anchor="w")  # Align to the left with padding
 
         # Combo Box for selecting options
-        combo_box = ttk.Combobox(frame, values=options, font=("Helvetica", 13), state="readonly")
+        combo_box = ttk.Combobox(frame, values=options, font=("MS Shell Dlg 2", 13), state="readonly")
         combo_box.pack(fill=tk.X, padx=20)
         combo_box.set(options[0])  # Set default selection (optional)
 
@@ -1106,83 +994,211 @@ class HomePage(tk.Frame):
         """Handles leave effects specifically for btnViewAllGraphs."""
         self.btnSimulator.config(bg="#4d4eba", fg="white")
 class ResultsPage(tk.Frame):
-    def __init__(self, parent):
+    def __init__(self, parent, home_page):
         super().__init__(parent, bg="white")
+        self.home_page = home_page  # Reference to HomePage instance
+
+        # Initialize the UI components
+        self.initialize_ui(parent)
+
+    
+    def handle_graph_selection(self, event):
+        """Handle when a graph item is selected in the Treeview."""
+        try:
+            # Ensure both files and processed data are available
+            if not self.home_page.caudal_file or not self.home_page.nivel_file:
+                self.show_warning("Missing Files", "Please select both 'Caudal' and 'Nivel' files before proceeding.")
+                return
+
+            if self.home_page.caudal_process is None or self.home_page.nivel_process is None:
+                self.show_warning("Data Not Processed", "Please process both 'Caudal' and 'Nivel' data before proceeding.")
+                return
+
+            # Get the selected item
+            selected_item = self.tree.selection()
+            if not selected_item:
+                return
+            selected_item_id = selected_item[0]
+            selected_item_text = self.tree.item(selected_item_id, "text")
+
+            # Determine if the selection is a decade or a main graph
+            parent_item_id = self.tree.parent(selected_item_id)
+            if selected_item_text.startswith("Decade"):
+                graph_title = self.tree.item(parent_item_id, "text")
+                selected_decade = int(selected_item_text.split()[-1])
+
+                for graph in self.home_page.graphs:
+                    if graph["titulo"] == graph_title:
+                        params = {"titulo": graph["titulo"], "décadas": [selected_decade], "bandera": True}
+                        self.display_graph(graph["function"], params)
+                        break
+            else:
+                graph_title = selected_item_text
+                for graph in self.home_page.graphs:
+                    if graph["titulo"] == graph_title:
+                        params = {"titulo": graph["titulo"], "décadas": graph.get("décadas", []), "bandera": True}
+                        self.display_graph(graph["function"], params)
+                        break
+                else:
+                    for tgraph in self.home_page.turbine_graphs:
+                        if graph_title in tgraph["turbine_options"]:
+                            params = {
+                                "turbine_options": selected_item_text,  # The selected turbine
+                                "titulo": tgraph["titulo"],
+                                "bandera": True,
+                                "index": 0
+                            }
+                            self.display_graph(tgraph["function"], params)
+                            break
+
+        except Exception as e:
+            # self.log_message(f"Error handling graph selection: {e}\n")
+            print(f"Error handling graph selection: {e}\n")
+
+    def display_graph(self, graph_function, params=None):
+        """Call the graph function and display the result."""
+        try:
+            # Ensure params is a dictionary to include self.home_page
+            if params is None:
+                params = {}
+            # Add self.home_page to params
+            params['instancia'] = self.home_page
+            params['instancia_resultados'] = self
+
+            # Call the graph function with the provided parameters
+            graph_function(**params)
+        except Exception as e:
+            print(f"Error displaying graph: {e}\n")
+
+
+    def show_warning(self, title, message):
+        """Display a warning message."""
+        tk.messagebox.showwarning(title, message)
+    def populate_tree(self):
+        """Populate the Treeview with graphs and turbine graphs."""
+        # Clear the Treeview
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+
+        # Set column width to prevent text truncation
+        self.tree.column("#0", width=300, stretch=True)
+        self.tree.heading("#0", text="Graphs")  # Set a heading for the column
+
+        # Add "Graphs" category (collapsed by default)
+        graphs_parent = self.tree.insert("", "end", text="Graphs", open=False)
+
+        # Add main graphs
+        for graph in self.home_page.graphs:
+            # Determine the parent category for the graph
+            graph_title = graph["titulo"].strip()  # Ensure no extra whitespace
+            if "Caudal" in graph_title:
+                caudal_parent = self._find_or_create_sub_parent(graphs_parent, "Caudal Graphs", open=False)
+                graph_item = self.tree.insert(caudal_parent, "end", text=graph_title, open=False)
+            elif "Nivel" in graph_title:
+                nivel_parent = self._find_or_create_sub_parent(graphs_parent, "Nivel Graphs", open=False)
+                graph_item = self.tree.insert(nivel_parent, "end", text=graph_title, open=False)
+            else:
+                graph_item = self.tree.insert(graphs_parent, "end", text=graph_title, open=False)
+
+            # Add decades as sub-items under the specific graph node
+            for decade in graph.get("décadas", []):
+                self.tree.insert(graph_item, "end", text=f"Decade {decade}", open=False)
+
+        # Add "Turbine Graphs" category (collapsed by default)
+        turbine_parent = self.tree.insert("", "end", text="Turbine Graphs", open=False)
+
+        for tgraph in self.home_page.turbine_graphs:
+            turbine_item = self.tree.insert(turbine_parent, "end", text=tgraph["titulo"], open=False)
+            for option in tgraph.get("turbine_options", []):
+                self.tree.insert(turbine_item, "end", text=option, open=False)
+
+    def _find_or_create_sub_parent(self, parent, sub_title, open=False):
+        """Helper function to find or create a sub-parent node."""
+        # Check if the sub-parent already exists
+        for child in self.tree.get_children(parent):
+            if self.tree.item(child, "text") == sub_title:
+                return child
+        # Create a new sub-parent if not found
+        return self.tree.insert(parent, "end", text=sub_title, open=open)
+
+    def initialize_ui(self, parent):
+        """Initialize the UI components for the ResultsPage."""
         self.bg = tk.Frame(self, bg="white")
         self.bg.pack(fill=tk.BOTH, expand=True)
         
         # Create the frame for the sidebar, similar to QFrame
         self.frame = tk.Frame(self.bg, bg="white", width=400)
         self.frame.pack(side=tk.LEFT, fill=tk.Y)
+        
         # Create a frame for the QTextEdit (Text widget) in the sidebar (light gray)
         user_frame = tk.Frame(self.frame, bg="white", height=5)
         user_frame.pack(fill=tk.BOTH, expand=False, padx=10, pady=10)
 
         # Create the Label for user section and align it to the left
-        user_label = tk.Label(user_frame, text="Graph List", bg="white", fg="black", font=("Helvetica", 14, "bold"))
+        user_label = tk.Label(user_frame, text="Graph List", bg="white", fg="black", font=("MS Shell Dlg 2", 14, "bold"))
         user_label.pack(fill=tk.BOTH, expand=False)
+        
         # Create a frame below the label to contain the Treeview
         tree_frame = tk.Frame(self.frame, bg="white")
         tree_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
         # Add a Treeview widget to the frame
-        self.tree = ttk.Treeview(tree_frame, columns=("Graph Name", "Date"), show="headings", height=15)
-        self.tree.pack(fill=tk.BOTH, expand=True)
+        self.tree = ttk.Treeview(tree_frame, show="tree")  # Use only the default tree column (#0)
+        self.tree.column("#0", width=320, stretch=True)   # Set width for the default tree column
+        self.tree.heading("#0", text="Graphs")           # Set the heading for the default tree column
+        self.tree.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
-        # Configure Treeview columns
-        self.tree.heading("Graph Name", text="Graph Name")
-        self.tree.heading("Date", text="Date")
-        self.tree.column("Graph Name", width=200, anchor="center")
-        self.tree.column("Date", width=100, anchor="center")
+        # Bind the selection event to the handle_graph_selection method
+        self.tree.bind("<<TreeviewSelect>>", self.handle_graph_selection)
 
-        # Example data to populate the Treeview
-        sample_data = [
-            ("Hydrograph A", "2024-01-01"),
-            ("Flow Analysis B", "2024-02-15"),
-            ("Performance C", "2024-03-10"),
-        ]
-        for graph_name, date in sample_data:
-            self.tree.insert("", "end", values=(graph_name, date))
-
-        # Add a scrollbar for the Treeview
-        tree_scroll = ttk.Scrollbar(tree_frame, orient="vertical", command=self.tree.yview)
-        tree_scroll.pack(side=tk.RIGHT, fill=tk.Y)
-        self.tree.configure(yscrollcommand=tree_scroll.set)
-        
         # Create the content section on the right side (like stacked widget)
         self.content_frame = tk.Frame(self.bg, bg="white")
         self.content_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=10, pady=10)  # Expands to occupy the remaining space
 
+        # Back button
         self.btnBack = tk.Button(
-        self.content_frame,
-        text="Back",
-        bg="#4d4eba",  # Background color
-        fg="white",  # Text color
-        font=("Helvetica", 12),
-        width=20,
-        relief="flat",  # Flat border
-        bd=2,  # Border width
-        highlightbackground="#4d4eba",  # Border color
-        highlightthickness=2,  # Border thickness
-        cursor="hand2",  # Pointer cursor
-        command=lambda: parent.show_page(HomePage)
-
-    )
+            self.content_frame,
+            text="Back",
+            bg="#4d4eba",  # Background color
+            fg="white",  # Text color
+            font=("MS Shell Dlg 2", 12),
+            width=20,
+            relief="flat",  # Flat border
+            bd=2,  # Border width
+            highlightbackground="#4d4eba",  # Border color
+            highlightthickness=2,  # Border thickness
+            cursor="hand2",  # Pointer cursor
+            command=lambda: parent.show_page(HomePage)
+        )
         self.btnBack.pack(side=tk.TOP, pady=10, anchor="e")
 
-        # Add hover effects specific to btnViewAllGraphs
+        # Add hover effects specific to btnBack
         self.btnBack.bind("<Enter>", lambda e: self.on_btnBack_hover())
         self.btnBack.bind("<Leave>", lambda e: self.on_btnBack_leave())
 
-
-        # Add a label for graph information
-        self.lblGraph = tk.Label(self.content_frame, text="Graph will be displayed here", bg="lightgray", font=("Helvetica", 14), borderwidth=2, relief="solid")
+        # Label for graph information
+        self.lblGraph = tk.Label(
+            self.content_frame, 
+            text="Graph will be displayed here", 
+            bg="lightgray", 
+            font=("MS Shell Dlg 2", 14), 
+            borderwidth=2, 
+            relief="solid"
+        )
         self.lblGraph.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
-        # Add a Text widget to show graph information (like QTextEdit for graph information)
-        self.graphInformation = tk.Text(self.content_frame,font=("Helvetica", 11), height=10, width=50, bg="#e9ecef", fg="#6c757d")
+        # Text widget to show graph information
+        self.graphInformation = tk.Text(
+            self.content_frame,
+            font=("MS Shell Dlg 2", 11),
+            height=10,
+            width=50,
+            bg="#e9ecef",
+            fg="#6c757d"
+        )
         self.graphInformation.config(state=tk.DISABLED)  # Making it read-only
-        self.graphInformation.pack(fill=tk.BOTH,  padx=10, pady=10)
+        self.graphInformation.pack(fill=tk.BOTH, padx=10, pady=10)
+
     def apply_button_styles(self, button):
         # Apply normal style to the button
         button.config(
@@ -1190,7 +1206,7 @@ class ResultsPage(tk.Frame):
             fg="black", 
             bd=2,  # border width
             relief="solid",  # solid border to replicate Qt style
-            font=("Helvetica", 12),  # Font size and style
+            font=("MS Shell Dlg 2", 12),  # Font size and style
             padx=3,  # padding inside button
             pady=3,  # padding inside button
             highlightthickness=0,  # no focus highlight border
@@ -1210,6 +1226,24 @@ class ResultsPage(tk.Frame):
         # Bind hover events
         button.bind("<Enter>", on_hover)
         button.bind("<Leave>", on_leave)
+    def mostrar_información(self, message):
+        self.limpiar_información()
+        """Display the given message in the graph information area (Text widget)."""
+        self.graphInformation.config(state=tk.NORMAL)  # Enable text box to update
+        self.graphInformation.delete(1.0, tk.END)  # Clear any previous content
+        self.graphInformation.insert(tk.END, message)  # Insert new message
+        self.graphInformation.config(state=tk.DISABLED)  # Disable text box to make it read-only
+
+    def limpiar_información(self):
+        """Clear the information displayed in the graph information area (Text widget)."""
+        self.graphInformation.config(state=tk.NORMAL)
+        self.graphInformation.delete(1.0, tk.END)  # Clear the content
+        self.graphInformation.config(state=tk.DISABLED)  # Disable the text box again
+    def registrar_mensaje(self, message):
+        """Helper function to add messages to the Text log area."""
+        self.graphInformation.config(state=tk.NORMAL)  # Enable text box to update logs
+        self.graphInformation.insert(tk.END, message + "\n")  # Append message with newline to the log
+        self.graphInformation.config(state=tk.DISABLED)  # Disable text box to make it read-only
     def on_btnBack_hover(self):
         """Handles hover effects specifically for btnViewAllGraphs."""
         self.btnBack.config(bg="#6c70ca", fg="#f6f8ff")

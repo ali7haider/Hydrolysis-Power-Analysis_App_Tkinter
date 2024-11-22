@@ -40,7 +40,7 @@ def mostrar_imagen_en_etiqueta(ruta_imagen, etiqueta):
 
         # Obtener el tamaño de la etiqueta
         ancho_etiqueta = etiqueta.winfo_width()
-        alto_etiqueta = etiqueta.winfo_height()
+        alto_etiqueta = (etiqueta.winfo_height())-4
 
         if ancho_etiqueta == 1 or alto_etiqueta == 1:
             # Manejo en caso de que el tamaño de la etiqueta no esté inicializado
@@ -59,12 +59,84 @@ def mostrar_imagen_en_etiqueta(ruta_imagen, etiqueta):
     except Exception as e:
         print(f"Error al mostrar la imagen en la etiqueta: {e}")
 
+def graficar_datos_en_etiqueta(instancia, datos, etiqueta_y, titulo, ajustar_unidades=False):
+    """Graficar los datos y mostrarlos en la QLabel con estadísticas en QTextEdit."""
+    
+    # Ajustar las unidades para los datos de 'Nivel' si es necesario
+    if ajustar_unidades:
+        datos = datos.copy()  # Copiar para evitar modificar los datos originales
+        datos["Valor"] = datos["Valor"] / 100
+    
+    # Crear el gráfico
+    fig, ax = plt.subplots(figsize=(10, 6))
+    ax.plot(datos['Fecha'], datos['Valor'])
+    ax.set_xlabel('Fecha')
+    ax.set_ylabel(etiqueta_y)
+    ax.set_title(titulo)
+    ax.grid(True, which='both', linestyle='--', linewidth=0.5)
+    
+    # Guardar el gráfico como un archivo temporal
+    nombre_temporal = "grafico_temporal.png"
+    fig.savefig(nombre_temporal)
 
-def graficar_dispersión_caudal_por_década(instancia, titulo='Serie Decadal de Caudal', décadas=[], bandera=False):
+    # Mostrar la imagen en la etiqueta correspondiente
+    mostrar_imagen_en_etiqueta(nombre_temporal, instancia.lblGraph)
+
+    # Eliminar el archivo temporal
+    os.remove(nombre_temporal)
+    
+    # Mostrar estadísticas en QTextEdit
+    estadísticas = datos.describe()
+    instancia.mostrar_información(f"Estadísticas de los datos de {etiqueta_y}:\n{estadísticas.to_string()}")
+    
+    # Cerrar la figura para liberar memoria
+    plt.close(fig)
+
+
+def graficar_mapa_de_calor(instancia, conjunto_datos, etiqueta):
+    """Graficar un mapa de calor para valores faltantes en el conjunto de datos y mostrarlo en lblGraph."""
+    conjunto_datos['Fecha'] = pd.to_datetime(conjunto_datos['Fecha'], errors='coerce')
+    conjunto_datos['Año'] = conjunto_datos['Fecha'].dt.year
+    conjunto_datos['DíaDelAño'] = conjunto_datos['Fecha'].dt.dayofyear
+
+    # Agrupar el conjunto de datos por Año y Día del Año
+    conjunto_agrupado = conjunto_datos.groupby(['Año', 'DíaDelAño'])['Valor'].mean().reset_index()
+
+    # Crear la tabla pivote para el mapa de calor
+    conjunto_pivote = conjunto_agrupado.pivot(index='Año', columns='DíaDelAño', values='Valor')
+
+    # Crear el mapa de calor
+    plt.figure(figsize=(10, 6))
+    sns.heatmap(conjunto_pivote.isnull(), cmap=sns.color_palette(["#add8e6", "#000000"]), cbar=False)
+    plt.title(f'Visualización de Valores Faltantes en el DataFrame de {etiqueta}')
+    plt.xlabel('Día del Año')
+    plt.ylabel('Año')
+    
+    # Guardar el gráfico como archivo temporal
+    nombre_temporal = "mapa_calor_temporal.png"
+    plt.savefig(nombre_temporal)
+
+    # Mostrar la imagen en la etiqueta correspondiente
+    mostrar_imagen_en_etiqueta(nombre_temporal, instancia.lblGraph)
+
+    # Eliminar el archivo temporal
+    os.remove(nombre_temporal)
+
+    # Crear la descripción estadística y mostrarla
+    descripción = conjunto_agrupado['Valor'].describe()
+    información_grafico = ''
+    información_grafico += f"Datos de {etiqueta} - Mapa de Calor de Valores Faltantes:\n"
+    información_grafico += f"Visualización de datos faltantes por día del año a través de los años.\n"
+    información_grafico += f"Estadísticas Descriptivas de los Datos de {etiqueta}:\n"
+    información_grafico += f"Conteo: {descripción['count']}\nPromedio: {descripción['mean']}\nDesviación Estándar: {descripción['std']}\nMínimo: {descripción['min']}\nMáximo: {descripción['max']}"
+    instancia.mostrar_información(f"{información_grafico}")
+
+def graficar_dispersión_caudal_por_década(instancia=None, instancia_resultados=None, titulo='Serie Decadal de Caudal', décadas=[], bandera=False):
     """Generar y mostrar un gráfico de dispersión de datos de caudal para una década específica."""
     try:
         if bandera:
             décadas = décadas[0]
+            print(décadas)
 
         # Ordenar los datos por la columna 'Fecha'
         caudal_procesado = instancia.caudal_process.sort_values(by='Fecha')
@@ -76,7 +148,10 @@ def graficar_dispersión_caudal_por_década(instancia, titulo='Serie Decadal de 
         ]
 
         if datos_década.empty:
-            instancia.registrar_mensaje(f"No hay datos disponibles para la década de {décadas}.")
+            if bandera:
+                instancia_resultados.registrar_mensaje(f"No hay datos disponibles para la década de {décadas}.")
+            else:
+                instancia.registrar_mensaje(f"No hay datos disponibles para la década de {décadas}.")
             return
 
         # Crear el gráfico de dispersión
@@ -100,7 +175,7 @@ def graficar_dispersión_caudal_por_década(instancia, titulo='Serie Decadal de 
 
         # Usar la función auxiliar para mostrar la imagen en la etiqueta correspondiente
         if bandera:
-            mostrar_imagen_en_etiqueta(nombre_temporal, instancia.lblGraph_2)
+            mostrar_imagen_en_etiqueta(nombre_temporal, instancia_resultados.lblGraph)
         else:
             mostrar_imagen_en_etiqueta(nombre_temporal, instancia.lblGraph)
 
@@ -109,8 +184,8 @@ def graficar_dispersión_caudal_por_década(instancia, titulo='Serie Decadal de 
         mensaje_estadísticas = f"{titulo} - Década {décadas}s\n\nEstadísticas:\n{estadísticas.to_string()}"
 
         if bandera:
-            instancia.limpiar_información_2()
-            instancia.mostrar_información_2(mensaje_estadísticas)
+            instancia_resultados.limpiar_información()
+            instancia_resultados. mostrar_información(mensaje_estadísticas)
         else:
             instancia.limpiar_información()
             instancia.mostrar_información(mensaje_estadísticas)
@@ -120,8 +195,11 @@ def graficar_dispersión_caudal_por_década(instancia, titulo='Serie Decadal de 
         plt.close(fig)
 
     except Exception as e:
-        instancia.registrar_mensaje(f"Error en graficar_dispersión_caudal_por_década: {e}")
-def graficar_dispersión_nivel_por_década(instancia, titulo='Serie Decadal de Nivel', décadas=[], bandera=False):
+        if bandera:
+            instancia_resultados.registrar_mensaje(f"Error en graficar_dispersión_caudal_por_década: {e}")
+        else:
+            instancia.registrar_mensaje(f"Error en graficar_dispersión_caudal_por_década: {e}")
+def graficar_dispersión_nivel_por_década(instancia=None, instancia_resultados=None, titulo='Serie Decadal de Nivel', décadas=[], bandera=False):
     """Generar y mostrar un gráfico de dispersión de datos de nivel para una década específica."""
     try:
         if bandera:
@@ -146,7 +224,10 @@ def graficar_dispersión_nivel_por_década(instancia, titulo='Serie Decadal de N
         ]
 
         if datos_década.empty:
-            instancia.registrar_mensaje(f"No hay datos disponibles para la década de {décadas}.")
+            if bandera:
+                instancia_resultados.registrar_mensaje(f"No hay datos disponibles para la década de {décadas}.")
+            else:
+                instancia.registrar_mensaje(f"No hay datos disponibles para la década de {décadas}.")
             return
 
         # Crear el gráfico de dispersión
@@ -170,7 +251,7 @@ def graficar_dispersión_nivel_por_década(instancia, titulo='Serie Decadal de N
 
         # Usar la función auxiliar para mostrar la imagen en la etiqueta correspondiente
         if bandera:
-            mostrar_imagen_en_etiqueta(nombre_temporal, instancia.lblGraph_2)
+            mostrar_imagen_en_etiqueta(nombre_temporal, instancia_resultados.lblGraph)
         else:
             mostrar_imagen_en_etiqueta(nombre_temporal, instancia.lblGraph)
 
@@ -179,8 +260,8 @@ def graficar_dispersión_nivel_por_década(instancia, titulo='Serie Decadal de N
         mensaje_estadísticas = f"{titulo} - Década {décadas}s\n\nEstadísticas:\n{estadísticas.to_string()}"
 
         if bandera:
-            instancia.limpiar_información_2()
-            instancia.mostrar_información_2(mensaje_estadísticas)
+            instancia_resultados.limpiar_información()
+            instancia_resultados. mostrar_información(mensaje_estadísticas)
         else:
             instancia.limpiar_información()
             instancia.mostrar_información(mensaje_estadísticas)
@@ -190,12 +271,14 @@ def graficar_dispersión_nivel_por_década(instancia, titulo='Serie Decadal de N
         plt.close(fig)
 
     except Exception as e:
-        instancia.registrar_mensaje(f"Error en graficar_dispersión_nivel_por_década: {e}")
-def graficar_dispersion_anual_caudal(instancia, titulo='Serie Anual de Caudal', décadas=[], bandera=False):
+        if bandera:
+            instancia_resultados.registrar_mensaje(f"Error en graficar_dispersión_nivel_por_década: {e}")
+        else:
+            instancia.registrar_mensaje(f"Error en graficar_dispersión_nivel_por_década: {e}")
+def graficar_dispersion_anual_caudal(instancia=None, instancia_resultados=None, titulo='Serie Anual de Caudal', décadas=[], bandera=False):
     """Generar y mostrar un gráfico de dispersión de datos de caudal por año para todos los años."""
     try:
-        if bandera:
-            décadas = décadas[0]  # Usar el primer valor de las décadas si bandera es True
+        
 
         # Ordenar los datos de caudal por la columna 'Fecha'
         caudal_procesado = instancia.caudal_process.sort_values(by='Fecha')
@@ -239,7 +322,7 @@ def graficar_dispersion_anual_caudal(instancia, titulo='Serie Anual de Caudal', 
 
         # Usar la función auxiliar para mostrar la imagen en la etiqueta correspondiente
         if bandera:
-            mostrar_imagen_en_etiqueta(nombre_temporal, instancia.lblGraph_2)
+            mostrar_imagen_en_etiqueta(nombre_temporal, instancia_resultados.lblGraph)
         else:
             mostrar_imagen_en_etiqueta(nombre_temporal, instancia.lblGraph)
 
@@ -248,8 +331,8 @@ def graficar_dispersion_anual_caudal(instancia, titulo='Serie Anual de Caudal', 
         mensaje_estadísticas = f"{titulo} ({décadas}s)\n\nEstadísticas:\n{estadísticas.to_string()}"
 
         if bandera:
-            instancia.limpiar_información_2()
-            instancia.mostrar_información_2(mensaje_estadísticas)
+            instancia_resultados.limpiar_información()
+            instancia_resultados. mostrar_información(mensaje_estadísticas)
         else:
             instancia.limpiar_información()
             instancia.mostrar_información(mensaje_estadísticas)
@@ -259,13 +342,14 @@ def graficar_dispersion_anual_caudal(instancia, titulo='Serie Anual de Caudal', 
         plt.close(fig)
 
     except Exception as e:
-        instancia.registrar_mensaje(f"Error en graficar_dispersion_anual_caudal: {e}")
-def graficar_dispersión_anual_nivel(instancia, titulo='Serie Anual de Nivel', décadas=[], bandera=False):
+        if bandera:
+            instancia_resultados.registrar_mensaje(f"Error en graficar_dispersión_nivel_por_década: {e}")
+        else:
+            instancia.registrar_mensaje(f"Error en graficar_dispersión_nivel_por_década: {e}")
+def graficar_dispersión_anual_nivel(instancia=None, instancia_resultados=None, titulo='Serie Anual de Nivel', décadas=[], bandera=False):
     """Generar y mostrar un gráfico de dispersión de datos de nivel para todos los años."""
     try:
-        if bandera:
-            décadas = décadas[0]  # Usar el primer valor de las décadas si bandera es True
-
+        
         # Ordenar los datos de nivel por la columna 'Fecha'
         nivel_procesado = instancia.nivel_process.sort_values(by='Fecha')
 
@@ -308,7 +392,7 @@ def graficar_dispersión_anual_nivel(instancia, titulo='Serie Anual de Nivel', d
 
         # Usar la función auxiliar para mostrar la imagen en la etiqueta correspondiente
         if bandera:
-            mostrar_imagen_en_etiqueta(nombre_temporal, instancia.lblGraph_2)
+            mostrar_imagen_en_etiqueta(nombre_temporal, instancia_resultados.lblGraph)
         else:
             mostrar_imagen_en_etiqueta(nombre_temporal, instancia.lblGraph)
 
@@ -317,8 +401,8 @@ def graficar_dispersión_anual_nivel(instancia, titulo='Serie Anual de Nivel', d
         mensaje_estadísticas = f"{titulo} ({décadas}s)\n\nEstadísticas:\n{estadísticas.to_string()}"
 
         if bandera:
-            instancia.limpiar_información_2()
-            instancia.mostrar_información_2(mensaje_estadísticas)
+            instancia_resultados.limpiar_información()
+            instancia_resultados. mostrar_información(mensaje_estadísticas)
         else:
             instancia.limpiar_información()
             instancia.mostrar_información(mensaje_estadísticas)
@@ -328,8 +412,11 @@ def graficar_dispersión_anual_nivel(instancia, titulo='Serie Anual de Nivel', d
         plt.close(fig)
 
     except Exception as e:
-        instancia.registrar_mensaje(f"Error en graficar_dispersión_anual_nivel: {e}")
-def mostrar_estadísticas(instancia, título="Estadísticas", décadas=[], bandera=False):
+        if bandera:
+            instancia_resultados.registrar_mensaje(f"Error en graficar_dispersión_anual_nivel: {e}")
+        else:
+            instancia.registrar_mensaje(f"Error en graficar_dispersión_anual_nivel: {e}")
+def mostrar_estadísticas(instancia=None, instancia_resultados=None, titulo="Estadísticas", décadas=[], bandera=False):
     """
     Calcular y mostrar las estadísticas para los datos de caudal y nivel en el widget QTextEdit proporcionado.
     :param info_textedit: QTextEdit donde se mostrarán las estadísticas.
@@ -375,13 +462,13 @@ def mostrar_estadísticas(instancia, título="Estadísticas", décadas=[], bande
 
     # Mostrar las estadísticas en el widget correspondiente
     if bandera:
-        instancia.limpiar_información_2()
-        instancia.mostrar_información_2(mensaje_estadísticas)
+        instancia_resultados.limpiar_información()
+        instancia_resultados. mostrar_información(mensaje_estadísticas)
     else:
         instancia.limpiar_información()
         instancia.mostrar_información(mensaje_estadísticas)
 
-def graficar_distribucion_caudal(instancia, titulo='', decadas=[], bandera=False):
+def graficar_distribucion_caudal(instancia=None, instancia_resultados=None, titulo='', décadas=[], bandera=False):
     """Graficar histograma y KDE de los datos de caudal con superposición de distribución normal en lblGraph y mostrar asimetría y curtosis en graphInformation."""
     try:
         if bandera == True:
@@ -416,7 +503,7 @@ def graficar_distribucion_caudal(instancia, titulo='', decadas=[], bandera=False
 
         # Convertir la imagen guardada a QPixmap y mostrarla usando la función auxiliar
         if bandera:
-            mostrar_imagen_en_etiqueta(nombre_temporal, instancia.lblGraph_2)
+            mostrar_imagen_en_etiqueta(nombre_temporal, instancia_resultados.lblGraph)
         else:
             mostrar_imagen_en_etiqueta(nombre_temporal, instancia.lblGraph)
 
@@ -430,8 +517,8 @@ def graficar_distribucion_caudal(instancia, titulo='', decadas=[], bandera=False
 
         # Mostrar las estadísticas en la etiqueta correspondiente
         if bandera:
-            instancia.limpiar_información_2()
-            instancia.mostrar_información_2(mensaje_estadisticas)
+            instancia_resultados.limpiar_información()
+            instancia_resultados. mostrar_información(mensaje_estadisticas)
         else:
             instancia.limpiar_información()
             instancia.mostrar_información(mensaje_estadisticas)
@@ -444,8 +531,11 @@ def graficar_distribucion_caudal(instancia, titulo='', decadas=[], bandera=False
 
     except Exception as e:
         # Registrar error
-        instancia.registrar_mensaje(f"Error en graficar_distribucion_caudal: {e}")
-def graficar_distribución_nivel(instancia, titulo='', décadas=[], bandera=False):
+        if bandera:
+            instancia_resultados.registrar_mensaje(f"Error en graficar_distribucion_caudal: {e}")
+        else:
+            instancia.registrar_mensaje(f"Error en graficar_distribucion_caudal: {e}")
+def graficar_distribución_nivel(instancia=None, instancia_resultados=None, titulo='', décadas=[], bandera=False):
     """Graficar el histograma y KDE de los datos de nivel con superposición de distribución normal en lblGraph y mostrar asimetría y curtosis en graphInformation."""
     try:
         # Filtrar valores NaN
@@ -478,7 +568,7 @@ def graficar_distribución_nivel(instancia, titulo='', décadas=[], bandera=Fals
 
         # Usar la función auxiliar para mostrar la imagen en la etiqueta correspondiente
         if bandera:
-            mostrar_imagen_en_etiqueta(nombre_temporal, instancia.lblGraph_2)
+            mostrar_imagen_en_etiqueta(nombre_temporal, instancia_resultados.lblGraph)
         else:
             mostrar_imagen_en_etiqueta(nombre_temporal, instancia.lblGraph)
 
@@ -491,8 +581,8 @@ def graficar_distribución_nivel(instancia, titulo='', décadas=[], bandera=Fals
         )
 
         if bandera:
-            instancia.limpiar_información_2()
-            instancia.mostrar_información_2(mensaje_estadísticas)
+            instancia_resultados.limpiar_información()
+            instancia_resultados. mostrar_información(mensaje_estadísticas)
         else:
             instancia.limpiar_información()
             instancia.mostrar_información(mensaje_estadísticas)
@@ -505,8 +595,11 @@ def graficar_distribución_nivel(instancia, titulo='', décadas=[], bandera=Fals
 
     except Exception as e:
         # Registrar error
-        instancia.registrar_mensaje(f"Error en graficar_distribución_nivel: {e}")
-def graficar_densidad_probabilidad_caudal_por_década(instancia, titulo='', décadas=[], bandera=False):
+        if bandera: 
+            instancia_resultados.registrar_mensaje(f"Error en graficar_distribución_nivel: {e}")
+        else:
+            instancia.registrar_mensaje(f"Error en graficar_distribución_nivel: {e}")
+def graficar_densidad_probabilidad_caudal_por_década(instancia=None, instancia_resultados=None, titulo='', décadas=[], bandera=False):
     """Generar gráficos de densidad de probabilidad para los datos de caudal para cada década en lblGraph."""
     try:
         if not bandera:
@@ -522,7 +615,10 @@ def graficar_densidad_probabilidad_caudal_por_década(instancia, titulo='', déc
 
             # Verificar si hay datos para la década
             if datos_década.empty:
-                instancia.registrar_mensaje(f"No hay datos disponibles para la década de {inicio_década}s.")
+                if bandera:
+                    instancia_resultados.registrar_mensaje(f"No hay datos disponibles para la década de {inicio_década}s.")
+                else:
+                    instancia.registrar_mensaje(f"No hay datos disponibles para la década de {inicio_década}s.")
                 continue
 
             # Crear gráfico KDE para densidad de probabilidad
@@ -537,7 +633,7 @@ def graficar_densidad_probabilidad_caudal_por_década(instancia, titulo='', déc
             nombre_temporal = "grafico_temporal.png"
             fig.savefig(nombre_temporal)
             if bandera:
-                mostrar_imagen_en_etiqueta(nombre_temporal, instancia.lblGraph_2)
+                mostrar_imagen_en_etiqueta(nombre_temporal, instancia_resultados.lblGraph)
             else:
                 mostrar_imagen_en_etiqueta(nombre_temporal, instancia.lblGraph)
 
@@ -545,8 +641,8 @@ def graficar_densidad_probabilidad_caudal_por_década(instancia, titulo='', déc
             mensaje_estadísticas = f"{titulo} ({inicio_década}s)\nEstadísticas:\n{estadísticas.to_string()}"
 
             if bandera:
-                instancia.limpiar_información_2()
-                instancia.mostrar_información_2(mensaje_estadísticas)
+                instancia_resultados.limpiar_información()
+                instancia_resultados. mostrar_información(mensaje_estadísticas)
             else:
                 instancia.limpiar_información()
                 instancia.mostrar_información(mensaje_estadísticas)
@@ -559,11 +655,13 @@ def graficar_densidad_probabilidad_caudal_por_década(instancia, titulo='', déc
 
     except Exception as e:
         # Registrar el error y también imprimirlo en la consola para debug
-        error_message = f"<span style='color:red;'>Error en graficar_densidad_probabilidad_caudal_por_década: {e}</span>"
-        instancia.registrar_mensaje(error_message)
+        if bandera:
+            instancia_resultados.registrar_mensaje(f"Error en graficar_densidad_probabilidad_caudal_por_década: {e}")
+        else:
+            instancia.registrar_mensaje(f"Error en graficar_densidad_probabilidad_caudal_por_década: {e}")
         print(f"Error en graficar_densidad_probabilidad_caudal_por_década: {e}")  # This will print the error to the console
 
-def graficar_densidad_probabilidad_nivel_por_década(instancia, titulo, décadas=[], bandera=False):
+def graficar_densidad_probabilidad_nivel_por_década(instancia=None, instancia_resultados=None,titulo='', décadas=[], bandera=False):
     """Generar gráficos de densidad de probabilidad para los datos de nivel para cada década en lblGraph."""
     try:
         if not bandera:
@@ -577,7 +675,10 @@ def graficar_densidad_probabilidad_nivel_por_década(instancia, titulo, décadas
             ]
 
             if datos_década.empty:
-                instancia.registrar_mensaje(f"No hay datos disponibles para la década de {inicio_década}s.")
+                if bandera:
+                    instancia_resultados.registrar_mensaje(f"No hay datos disponibles para la década de {inicio_década}s.")
+                else:
+                    instancia.registrar_mensaje(f"No hay datos disponibles para la década de {inicio_década}s.")
                 continue
 
             # Crear gráfico KDE para densidad de probabilidad
@@ -594,9 +695,9 @@ def graficar_densidad_probabilidad_nivel_por_década(instancia, titulo, décadas
 
             # Usar la función auxiliar para mostrar la imagen en la etiqueta correspondiente
             if bandera:
-                mostrar_imagen_en_etiqueta(nombre_temporal, instancia.lblGraph_2)
-                instancia.limpiar_información_2()
-                instancia.mostrar_información_2(f"{titulo} ({inicio_década}s)\nDensidad de Probabilidad por Década")
+                mostrar_imagen_en_etiqueta(nombre_temporal, instancia_resultados.lblGraph)
+                instancia_resultados.limpiar_información()
+                instancia_resultados. mostrar_información(f"{titulo} ({inicio_década}s)\nDensidad de Probabilidad por Década")
             else:
                 mostrar_imagen_en_etiqueta(nombre_temporal, instancia.lblGraph)
                 instancia.limpiar_información()
@@ -610,8 +711,11 @@ def graficar_densidad_probabilidad_nivel_por_década(instancia, titulo, décadas
 
     except Exception as e:
         # Registrar error
-        instancia.registrar_mensaje(f"Error en graficar_densidad_probabilidad_nivel_por_década: {e}")
-def graficar_comportamiento_anual_por_década_caudal(instancia, titulo, décadas=[], bandera=False):
+        if bandera:
+            instancia_resultados.registrar_mensaje(f"Error en graficar_densidad_probabilidad_nivel_por_década: {e}")
+        else:
+            instancia.registrar_mensaje(f"Error en graficar_densidad_probabilidad_nivel_por_década: {e}")
+def graficar_comportamiento_anual_por_década_caudal(instancia=None, instancia_resultados=None,titulo='', décadas=[], bandera=False):
     """Generar gráfico de comportamiento anual de caudal para cada década en lblGraph."""
     try:
         if not bandera:
@@ -633,7 +737,10 @@ def graficar_comportamiento_anual_por_década_caudal(instancia, titulo, décadas
             ]
 
             if datos_década.empty:
-                instancia.registrar_mensaje(f"No hay datos disponibles para la década de {inicio_década}s.")
+                if bandera:
+                    instancia_resultados.registrar_mensaje(f"No hay datos disponibles para la década de {inicio_década}s.")
+                else:
+                    instancia.registrar_mensaje(f"No hay datos disponibles para la década de {inicio_década}s.")
                 continue
 
             # Crear una figura para cada década
@@ -671,13 +778,13 @@ def graficar_comportamiento_anual_por_década_caudal(instancia, titulo, décadas
             nombre_temporal = "grafico_temporal.png"
             fig.savefig(nombre_temporal)
             if bandera:
-                mostrar_imagen_en_etiqueta(nombre_temporal, instancia.lblGraph_2)
+                mostrar_imagen_en_etiqueta(nombre_temporal, instancia_resultados.lblGraph)
             else:
                 mostrar_imagen_en_etiqueta(nombre_temporal, instancia.lblGraph)
             # Usar la función auxiliar para mostrar la imagen en la etiqueta correspondiente
             if bandera:
-                instancia.limpiar_información_2()
-                instancia.mostrar_información_2(f"{titulo} ({inicio_década}s)\nComportamiento Anual por Década")
+                instancia_resultados.limpiar_información()
+                instancia_resultados. mostrar_información(f"{titulo} ({inicio_década}s)\nComportamiento Anual por Década")
             else:
                 instancia.limpiar_información()
                 instancia.mostrar_información(f"{titulo} ({inicio_década}s)\nComportamiento Anual por Década")
@@ -690,8 +797,11 @@ def graficar_comportamiento_anual_por_década_caudal(instancia, titulo, décadas
 
     except Exception as e:
         # Registrar error
-        instancia.registrar_mensaje(f"Error en graficar_comportamiento_anual_por_década_caudal: {e}")
-def graficar_comportamiento_anual_por_década_nivel(instancia, titulo, décadas=[], bandera=False):
+        if bandera:
+            instancia_resultados.registrar_mensaje(f"Error en graficar_comportamiento_anual_por_década_caudal: {e}")
+        else:
+            instancia.registrar_mensaje(f"Error en graficar_comportamiento_anual_por_década_caudal: {e}")
+def graficar_comportamiento_anual_por_década_nivel(instancia=None, instancia_resultados=None,titulo='', décadas=[], bandera=False):
     """Generar gráfico de comportamiento anual de nivel para cada década en lblGraph."""
     try:
         if bandera:
@@ -704,6 +814,10 @@ def graficar_comportamiento_anual_por_década_nivel(instancia, titulo, décadas=
                                      (nivel_process['Fecha'].dt.year <= fin_década)]
 
         if datos_década.empty:
+            if bandera:
+                instancia_resultados.registrar_mensaje(f"No hay datos disponibles para la década de {décadas}s.\n")
+            else:
+                instancia.registrar_mensaje(f"No hay datos disponibles para la década de {décadas}s.\n")
             instancia.registrar_mensaje(f"No hay datos disponibles para la década de {décadas}s.\n")
             return
 
@@ -745,13 +859,13 @@ def graficar_comportamiento_anual_por_década_nivel(instancia, titulo, décadas=
         nombre_temporal = "grafico_temporal.png"
         fig.savefig(nombre_temporal)
         if bandera:
-            mostrar_imagen_en_etiqueta(nombre_temporal, instancia.lblGraph_2)
+            mostrar_imagen_en_etiqueta(nombre_temporal, instancia_resultados.lblGraph)
         else:
             mostrar_imagen_en_etiqueta(nombre_temporal, instancia.lblGraph)
         # Usar la función auxiliar para mostrar la imagen en la etiqueta correspondiente
         if bandera:
-            instancia.limpiar_información_2()
-            instancia.mostrar_información_2(f"{titulo} ({décadas}s)\nComportamiento Anual de Nivel")
+            instancia_resultados.limpiar_información()
+            instancia_resultados. mostrar_información(f"{titulo} ({décadas}s)\nComportamiento Anual de Nivel")
         else:
             instancia.limpiar_información()
             instancia.mostrar_información(f"{titulo} ({décadas}s)\nComportamiento Anual de Nivel")
@@ -764,8 +878,11 @@ def graficar_comportamiento_anual_por_década_nivel(instancia, titulo, décadas=
 
     except Exception as e:
         # Registrar error
-        instancia.registrar_mensaje(f"<span style='color:red;'>Error en graficar_comportamiento_anual_por_década_nivel: {e}</span>")
-def graficar_perfil_hidrológico_caudal(instancia, titulo="Perfil Hidrológico Anual - Caudal", décadas=[], bandera=False):
+        if bandera:
+            instancia_resultados.registrar_mensaje(f"Error en graficar_comportamiento_anual_por_década_nivel: {e}")
+        else:
+            instancia.registrar_mensaje(f"Error en graficar_comportamiento_anual_por_década_nivel: {e}")
+def graficar_perfil_hidrológico_caudal(instancia=None, instancia_resultados=None, titulo="Perfil Hidrológico Anual - Caudal", décadas=[], bandera=False):
     """Generar gráfico de perfil hidrológico anual por mes para los casos seco, húmedo y normal de caudal en lblGraph."""
     try:
         # Asegurar que 'Fecha' esté en formato datetime
@@ -816,13 +933,13 @@ def graficar_perfil_hidrológico_caudal(instancia, titulo="Perfil Hidrológico A
         nombre_temporal = "grafico_temporal.png"
         fig.savefig(nombre_temporal)
         if bandera:
-            mostrar_imagen_en_etiqueta(nombre_temporal, instancia.lblGraph_2)
+            mostrar_imagen_en_etiqueta(nombre_temporal, instancia_resultados.lblGraph)
         else:
             mostrar_imagen_en_etiqueta(nombre_temporal, instancia.lblGraph)
         # Convertir la imagen guardada a QPixmap y mostrarla
         if bandera:
-            instancia.limpiar_información_2()
-            instancia.mostrar_información_2(f"{titulo}\nPerfil Hidrológico Mensual para los Casos Húmedo, Normal y Seco")
+            instancia_resultados.limpiar_información()
+            instancia_resultados. mostrar_información(f"{titulo}\nPerfil Hidrológico Mensual para los Casos Húmedo, Normal y Seco")
         else:
             instancia.limpiar_información()
             instancia.mostrar_información(f"{titulo}\nPerfil Hidrológico Mensual para los Casos Húmedo, Normal y Seco")
@@ -831,8 +948,11 @@ def graficar_perfil_hidrológico_caudal(instancia, titulo="Perfil Hidrológico A
         os.remove(nombre_temporal)
         plt.close(fig)
     except Exception as e:
-        instancia.registrar_mensaje(f"Error en graficar_perfil_hidrológico_caudal: {e}")
-def graficar_perfil_hidrológico_nivel(instancia, titulo='', décadas=[], bandera=False):
+        if bandera:
+            instancia_resultados.registrar_mensaje(f"Error en graficar_perfil_hidrológico_caudal: {e}")
+        else:
+            instancia.registrar_mensaje(f"Error en graficar_perfil_hidrológico_caudal: {e}")
+def graficar_perfil_hidrológico_nivel(instancia=None, instancia_resultados=None, titulo='', décadas=[], bandera=False):
     """Generar gráfico del perfil hidrológico anual (Nivel) por mes para diferentes categorías (Húmedo, Base, Seco)."""
 
     try:
@@ -884,12 +1004,12 @@ def graficar_perfil_hidrológico_nivel(instancia, titulo='', décadas=[], bander
 
         # Convertir la imagen guardada a QPixmap y mostrarla
         if bandera:
-            mostrar_imagen_en_etiqueta(nombre_temporal, instancia.lblGraph_2)
+            mostrar_imagen_en_etiqueta(nombre_temporal, instancia_resultados.lblGraph)
         else:
             mostrar_imagen_en_etiqueta(nombre_temporal, instancia.lblGraph)
         if bandera:
-            instancia.limpiar_información_2()
-            instancia.mostrar_información_2(f"Mostrado {titulo}\n")
+            instancia_resultados.limpiar_información()
+            instancia_resultados. mostrar_información(f"Mostrado {titulo}\n")
         else:
             instancia.limpiar_información()
             instancia.mostrar_información(f"Mostrado {titulo}\n")
@@ -899,8 +1019,11 @@ def graficar_perfil_hidrológico_nivel(instancia, titulo='', décadas=[], bander
         plt.close(fig)
 
     except Exception as e:
-        instancia.registrar_mensaje(f"Error en graficar_perfil_hidrológico_nivel: {e}")
-def graficar_perfil_anual_dias_caudal(instancia, titulo, décadas=[], bandera=False):
+        if bandera:
+            instancia_resultados.registrar_mensaje(f"Error en graficar_perfil_hidrológico_nivel: {e}")
+        else:
+            instancia.registrar_mensaje(f"Error en graficar_perfil_hidrológico_nivel: {e}")
+def graficar_perfil_anual_dias_caudal(instancia=None, instancia_resultados=None,titulo='', décadas=[], bandera=False):
     """Generar gráfico del perfil hidrológico anual por día del año (Caudal) para diferentes categorías (Húmedo, Base, Seco)."""
 
     try:
@@ -947,12 +1070,12 @@ def graficar_perfil_anual_dias_caudal(instancia, titulo, décadas=[], bandera=Fa
 
         # Convertir la imagen guardada a QPixmap y mostrarla
         if bandera:
-            mostrar_imagen_en_etiqueta(nombre_temporal, instancia.lblGraph_2)
+            mostrar_imagen_en_etiqueta(nombre_temporal, instancia_resultados.lblGraph)
         else:
             mostrar_imagen_en_etiqueta(nombre_temporal, instancia.lblGraph)
         if bandera:
-            instancia.limpiar_información_2()
-            instancia.mostrar_información_2(f"Mostrado {titulo}\n")
+            instancia_resultados.limpiar_información()
+            instancia_resultados. mostrar_información(f"Mostrado {titulo}\n")
         else:
             instancia.limpiar_información()
             instancia.mostrar_información(f"Mostrado {titulo}\n")
@@ -962,8 +1085,11 @@ def graficar_perfil_anual_dias_caudal(instancia, titulo, décadas=[], bandera=Fa
         plt.close(fig)
 
     except Exception as e:
-        instancia.registrar_mensaje(f"Error en graficar_perfil_anual_dias_caudal: {e}")
-def graficar_perfil_anual_dias_nivel(instancia, titulo, décadas=[], bandera=False):
+        if bandera:
+            instancia_resultados.registrar_mensaje(f"Error en graficar_perfil_anual_dias_caudal: {e}")
+        else:
+            instancia.registrar_mensaje(f"Error en graficar_perfil_anual_dias_caudal: {e}")
+def graficar_perfil_anual_dias_nivel(instancia=None, instancia_resultados=None,titulo='', décadas=[], bandera=False):
     """Generar gráfico del perfil hidrológico anual por día del año (Nivel) para diferentes categorías (Húmedo, Base, Seco)."""
 
     try:
@@ -1008,12 +1134,12 @@ def graficar_perfil_anual_dias_nivel(instancia, titulo, décadas=[], bandera=Fal
         nombre_temporal = "grafico_temporal.png"
         fig.savefig(nombre_temporal)
         if bandera:
-            mostrar_imagen_en_etiqueta(nombre_temporal, instancia.lblGraph_2)
+            mostrar_imagen_en_etiqueta(nombre_temporal, instancia_resultados.lblGraph)
         else:
             mostrar_imagen_en_etiqueta(nombre_temporal, instancia.lblGraph)
         if bandera:
-            instancia.limpiar_información_2()
-            instancia.mostrar_información_2(f"Mostrado {titulo}\n")
+            instancia_resultados.limpiar_información()
+            instancia_resultados. mostrar_información(f"Mostrado {titulo}\n")
         else:
             instancia.limpiar_información()
             instancia.mostrar_información(f"Mostrado {titulo}\n")
@@ -1023,8 +1149,11 @@ def graficar_perfil_anual_dias_nivel(instancia, titulo, décadas=[], bandera=Fal
         plt.close(fig)
 
     except Exception as e:
-        instancia.registrar_mensaje(f"Error en graficar_perfil_anual_dias_nivel: {e}")
-def mostrar_estadísticas_nominales(instancia, titulo, décadas=[], bandera=False):
+        if bandera:
+            instancia_resultados.registrar_mensaje(f"Error en graficar_perfil_anual_dias_nivel: {e}")
+        else:
+            instancia.registrar_mensaje(f"Error en graficar_perfil_anual_dias_nivel: {e}")
+def mostrar_estadísticas_nominales(instancia=None, instancia_resultados=None,titulo='', décadas=[], bandera=False):
     """Calcular y mostrar estadísticas del caudal y nivel nominal (máximo, promedio, mínimo) para cada categoría hidrológica."""
 
     try:
@@ -1064,7 +1193,7 @@ def mostrar_estadísticas_nominales(instancia, titulo, décadas=[], bandera=Fals
             f"Seco (Dry) - Máx: {estadisticas_nivel_s2[0]:.2f}, Prom: {estadisticas_nivel_s2[1]:.2f}, Mín: {estadisticas_nivel_s2[2]:.2f}"
         )
         if bandera:
-            # instancia.lblGraph_2.clear()
+            # instancia_resultados.lblGraph.clear()
             instancia.limpiar_información()
             instancia.mostrar_información(texto_estadísticas)
         else:
@@ -1073,13 +1202,16 @@ def mostrar_estadísticas_nominales(instancia, titulo, décadas=[], bandera=Fals
             instancia.mostrar_información(texto_estadísticas)
 
     except Exception as e:
-        instancia.registrar_mensaje(f"Error en mostrar_estadísticas_nominales: {e}")
+        if bandera:
+            instancia_resultados.registrar_mensaje(f"Error en mostrar_estadísticas_nominales: {e}")
+        else:
+            instancia.registrar_mensaje(f"Error en mostrar_estadísticas_nominales: {e}")
 
 
 
 
 
-def calcular_P95_y_mostrar(instancia, titulo, décadas=[], bandera=False, escala=(800, 600)):
+def calcular_P95_y_mostrar(instancia=None, instancia_resultados=None,titulo='', décadas=[], bandera=False, escala=(800, 600)):
     """Calcular y mostrar la probabilidad de excedencia P95 y su gráfico correspondiente."""
 
     try:
@@ -1137,22 +1269,25 @@ def calcular_P95_y_mostrar(instancia, titulo, décadas=[], bandera=False, escala
         fig.savefig(nombre_temporal)
         plt.close()  # Cerrar la figura para liberar recursos
         if bandera:
-            mostrar_imagen_en_etiqueta(nombre_temporal, instancia.lblGraph_2)
+            mostrar_imagen_en_etiqueta(nombre_temporal, instancia_resultados.lblGraph)
         else:
             mostrar_imagen_en_etiqueta(nombre_temporal, instancia.lblGraph)
         # Mostrar la imagen en el label adecuado utilizando la función mostrar_imagen_en_etiqueta
         if bandera:
-            instancia.limpiar_información_2()
-            instancia.mostrar_información_2(f"Max P95: {np.max(caudales_P95):.2f}\nMin P95: {np.min(caudales_P95):.2f}\nPromedio P95: {np.mean(caudales_P95):.2f}")
+            instancia_resultados.limpiar_información()
+            instancia_resultados. mostrar_información(f"Max P95: {np.max(caudales_P95):.2f}\nMin P95: {np.min(caudales_P95):.2f}\nPromedio P95: {np.mean(caudales_P95):.2f}")
         else:
             instancia.limpiar_información()
             instancia.mostrar_información(f"Max P95: {np.max(caudales_P95):.2f}\nMin P95: {np.min(caudales_P95):.2f}\nPromedio P95: {np.mean(caudales_P95):.2f}")
         os.remove(nombre_temporal)
 
     except Exception as e:
-        instancia.registrar_mensaje(f"Error en calcular_P95_y_mostrar: {e}")
+        if bandera:
+            instancia_resultados.registrar_mensaje(f"Error en calcular_P95_y_mostrar: {e}")
+        else:
+            instancia.registrar_mensaje(f"Error en calcular_P95_y_mostrar: {e}")
         print(f"Error en calcular_P95_y_mostrar: {e}")  # Imprimir el error en la consola para debug
-def mostrar_caudal_promedio(instancia, titulo, decadas=[], bandera=False):
+def mostrar_caudal_promedio(instancia=None, instancia_resultados=None,titulo='', décadas=[], bandera=False):
     """Calcular y mostrar el caudal promedio (caudal promedio) a lo largo de los años."""
     
     try:
@@ -1188,7 +1323,7 @@ def mostrar_caudal_promedio(instancia, titulo, decadas=[], bandera=False):
         plt.close()  # Cerrar la figura para liberar recursos
 
         if bandera:
-            mostrar_imagen_en_etiqueta(nombre_temporal, instancia.lblGraph_2)
+            mostrar_imagen_en_etiqueta(nombre_temporal, instancia_resultados.lblGraph)
         else:
             mostrar_imagen_en_etiqueta(nombre_temporal, instancia.lblGraph)
 
@@ -1198,8 +1333,8 @@ def mostrar_caudal_promedio(instancia, titulo, decadas=[], bandera=False):
         mean_caudal = np.mean(lista_promedios_anualesQ)
 
         if bandera:
-            instancia.limpiar_información_2()
-            instancia.mostrar_información_2(f"Max Caudal: {max_caudal:.2f} m³/s\nMin Caudal: {min_caudal:.2f} m³/s\nCaudal Promedio: {mean_caudal:.2f} m³/s")
+            instancia_resultados.limpiar_información()
+            instancia_resultados. mostrar_información(f"Max Caudal: {max_caudal:.2f} m³/s\nMin Caudal: {min_caudal:.2f} m³/s\nCaudal Promedio: {mean_caudal:.2f} m³/s")
         else:
             instancia.limpiar_información()
             instancia.mostrar_información(f"Max Caudal: {max_caudal:.2f} m³/s\nMin Caudal: {min_caudal:.2f} m³/s\nCaudal Promedio: {mean_caudal:.2f} m³/s")
@@ -1207,8 +1342,11 @@ def mostrar_caudal_promedio(instancia, titulo, decadas=[], bandera=False):
         os.remove(nombre_temporal)
 
     except Exception as e:
-        instancia.registrar_mensaje(f"Error en mostrar_caudal_promedio: {e}")
-def mostrar_nivel_P95(instancia, titulo, decadas=[], bandera=False):
+        if bandera:
+            instancia_resultados.registrar_mensaje(f"Error en mostrar_caudal_promedio: {e}")
+        else:
+            instancia.registrar_mensaje(f"Error en mostrar_caudal_promedio: {e}")
+def mostrar_nivel_P95(instancia=None, instancia_resultados=None,titulo='', décadas=[], bandera=False):
     """Calcular y mostrar los niveles P95 para cada año."""
     
     try:
@@ -1216,7 +1354,7 @@ def mostrar_nivel_P95(instancia, titulo, decadas=[], bandera=False):
         # Lista de años de las diferentes categorías (H2, B2, S2)
         # Asegúrese de que tanto los archivos como los datos procesados estén disponibles
         if not instancia.años_secos or not instancia.años_humedos or not instancia.años_normales:
-            messagebox.showerror(instancia, "Años Faltantes", "Por favor seleccione los años Secos, Húmedos y Normales antes.")
+            messagebox.showerror("Años Faltantes", "Por favor seleccione los años Secos, Húmedos y Normales antes.")
             return
         total_years = instancia.años_secos | instancia.años_humedos | instancia.años_normales  # Usando el operador de unión
         total_years = sorted(total_years)
@@ -1276,21 +1414,24 @@ def mostrar_nivel_P95(instancia, titulo, decadas=[], bandera=False):
         plt.close()  # Cerrar la figura para liberar recursos
 
         if bandera:
-            mostrar_imagen_en_etiqueta(nombre_temporal, instancia.lblGraph_2)
+            mostrar_imagen_en_etiqueta(nombre_temporal, instancia_resultados.lblGraph)
         else:
             mostrar_imagen_en_etiqueta(nombre_temporal, instancia.lblGraph)
 
         # Aquí sigue el patrón exacto solicitado para manejar la imagen y la información:
         if bandera:
-            instancia.limpiar_información_2()
-            instancia.mostrar_información_2("Mostrados los gráficos y estadísticas de Nivel P95.\n")
+            instancia_resultados.limpiar_información()
+            instancia_resultados. mostrar_información("Mostrados los gráficos y estadísticas de Nivel P95.\n")
         else:
             instancia.limpiar_información()
             instancia.mostrar_información("Mostrados los gráficos y estadísticas de Nivel P95.\n")
 
     except Exception as e:
-        instancia.registrar_mensaje(f"Error en mostrar_nivel_P95: {e}")
-def mostrar_velocidad_flujo(instancia, titulo, decadas=[], bandera=False):
+        if bandera:
+            instancia_resultados.registrar_mensaje(f"Error en mostrar_nivel_P95: {e}")
+        else:
+            instancia.registrar_mensaje(f"Error en mostrar_nivel_P95: {e}")
+def mostrar_velocidad_flujo(instancia=None, instancia_resultados=None,titulo='', décadas=[], bandera=False):
     """Calcular y mostrar la velocidad de flujo (Velocidad) gráfica."""
 
     try:
@@ -1348,7 +1489,7 @@ def mostrar_velocidad_flujo(instancia, titulo, decadas=[], bandera=False):
         plt.close()  # Cerrar la figura para liberar recursos
         # Mostrar la imagen de acuerdo al valor de bandera
         if bandera:
-            mostrar_imagen_en_etiqueta(nombre_temporal, instancia.lblGraph_2)
+            mostrar_imagen_en_etiqueta(nombre_temporal, instancia_resultados.lblGraph)
         else:
             mostrar_imagen_en_etiqueta(nombre_temporal, instancia.lblGraph)
         os.remove(nombre_temporal)
@@ -1361,8 +1502,8 @@ def mostrar_velocidad_flujo(instancia, titulo, decadas=[], bandera=False):
         texto_informacion_velocidad = f"Max Velocidad: {max_velocidad:.2f} m/s\nMin Velocidad: {min_velocidad:.2f} m/s\nPromedio Velocidad: {mean_velocidad:.2f} m/s"
 
         if bandera:
-            instancia.limpiar_información_2()
-            instancia.mostrar_información_2(texto_informacion_velocidad)
+            instancia_resultados.limpiar_información()
+            instancia_resultados. mostrar_información(texto_informacion_velocidad)
         else:
             instancia.limpiar_información()
             instancia.mostrar_información(texto_informacion_velocidad)
@@ -1370,8 +1511,11 @@ def mostrar_velocidad_flujo(instancia, titulo, decadas=[], bandera=False):
         
 
     except Exception as e:
-        instancia.registrar_mensaje(f"Error en mostrar_velocidad_flujo: {e}")
-def mostrar_comportamiento_mensual(instancia, titulo, decadas=[], bandera=False):
+        if bandera:
+            instancia_resultados.registrar_mensaje(f"Error en mostrar_velocidad_flujo: {e}")
+        else:
+            instancia.registrar_mensaje(f"Error en mostrar_velocidad_flujo: {e}")
+def mostrar_comportamiento_mensual(instancia=None, instancia_resultados=None,titulo='', décadas=[], bandera=False):
     """Calcular y mostrar el comportamiento mensual de la velocidad promedio diaria por mes y categoría."""
 
     try:
@@ -1399,11 +1543,14 @@ def mostrar_comportamiento_mensual(instancia, titulo, decadas=[], bandera=False)
         df_merge_normales = obtener_promedio_diario(instancia.df_merge, años_normales)  # Años normales
 
         # Graficar los promedios de velocidad diaria
-        mostrar_velocidad_mensual(instancia,df_merge_secos, df_merge_humedos, df_merge_normales, 'Día del Año', bandera)
+        mostrar_velocidad_mensual(instancia, instancia_resultados,df_merge_secos, df_merge_humedos, df_merge_normales, 'Día del Año', bandera)
 
     except Exception as e:
-        instancia.registrar_mensaje(f"Error en mostrar_comportamiento_mensual: {e}")
-def mostrar_velocidad_promedio_mensual(instancia, titulo, decadas=[], bandera=False):
+        if bandera:
+            instancia_resultados.registrar_mensaje(f"Error en mostrar_comportamiento_mensual: {e}")
+        else:
+            instancia.registrar_mensaje(f"Error en mostrar_comportamiento_mensual: {e}")
+def mostrar_velocidad_promedio_mensual(instancia=None, instancia_resultados=None,titulo='', décadas=[], bandera=False):
     """Calcular y mostrar la velocidad promedio diaria por mes y categoría."""
 
     try:
@@ -1431,11 +1578,14 @@ def mostrar_velocidad_promedio_mensual(instancia, titulo, decadas=[], bandera=Fa
         df_merge_normales = obtener_promedio_diario(instancia.df_merge, años_normales)  # Años normales
 
         # Graficar los promedios de velocidad diaria
-        mostrar_velocidad_mensual(instancia,df_merge_secos, df_merge_humedos, df_merge_normales, 'Mes', bandera)
+        mostrar_velocidad_mensual(instancia,instancia_resultados,df_merge_secos, df_merge_humedos, df_merge_normales, 'Mes', bandera)
 
     except Exception as e:
-        instancia.registrar_mensaje(f"Error en mostrar_velocidad_promedio_mensual: {e}")
-def mostrar_velocidad_mensual(instancia, df_merge_secos, df_merge_humedos, df_merge_normales, caso, bandera):
+        if bandera:
+            instancia_resultados.registrar_mensaje(f"Error en mostrar_velocidad_promedio_mensual: {e}")
+        else:
+            instancia.registrar_mensaje(f"Error en mostrar_velocidad_promedio_mensual: {e}")
+def mostrar_velocidad_mensual(instancia, instancia_resultados, df_merge_secos, df_merge_humedos, df_merge_normales, caso, bandera):
     """Graficar la velocidad promedio diaria por mes para cada categoría."""
 
     try:
@@ -1500,7 +1650,7 @@ def mostrar_velocidad_mensual(instancia, df_merge_secos, df_merge_humedos, df_me
 
         # Mostrar la imagen de acuerdo al valor de bandera
         if bandera:
-            mostrar_imagen_en_etiqueta(nombre_temporal, instancia.lblGraph_2)
+            mostrar_imagen_en_etiqueta(nombre_temporal, instancia_resultados.lblGraph)
         else:
             mostrar_imagen_en_etiqueta(nombre_temporal, instancia.lblGraph)
 
@@ -1508,15 +1658,18 @@ def mostrar_velocidad_mensual(instancia, df_merge_secos, df_merge_humedos, df_me
 
         # Mostrar la información de estadísticas de velocidad
         if bandera:
-            instancia.limpiar_información_2()
-            instancia.mostrar_información_2("Displayed daily average velocity graph for categories.\n")
+            instancia_resultados.limpiar_información()
+            instancia_resultados. mostrar_información("Displayed daily average velocity graph for categories.\n")
         else:
             instancia.limpiar_información()
             instancia.mostrar_información("Displayed daily average velocity graph for categories.\n")
 
     except Exception as e:
-        instancia.registrar_mensaje(f"Error en mostrar_velocidad_mensual: {e}")
-def calculate_and_display_turbine_power(instancia, turbine_options=None, title='', flag=False,index=0):
+        if bandera:
+            instancia_resultados.registrar_mensaje(f"Error en mostrar_velocidad_mensual: {e}")
+        else:
+            instancia.registrar_mensaje(f"Error en mostrar_velocidad_mensual: {e}")
+def calculate_and_display_turbine_power(instancia=None, instancia_resultados=None, turbine_options=None, titulo='', bandera=False,index=0):
     """Calculate and display power output for the specified turbine models."""
     try:
         # Default turbine options if none are provided
@@ -1540,14 +1693,13 @@ def calculate_and_display_turbine_power(instancia, turbine_options=None, title='
 
         # Clean up the column names to remove leading/trailing spaces
         df_datasheet.columns = df_datasheet.columns.str.strip()
-        print(df_datasheet.columns)
         # Initialize turbines
         turbines = {}
         for turbine_name in turbine_options:
             # Check if the turbine name exists in the columns
             if turbine_name not in df_datasheet.columns:
                 error_message = f"Turbine '{turbine_name}' not found in data sheet columns."
-                handle_error(instancia,error_message, flag)
+                handle_error(instancia,instancia_resultados,error_message, bandera)
                 return
 
             # Extract the relevant turbine data from the datasheet
@@ -1571,7 +1723,7 @@ def calculate_and_display_turbine_power(instancia, turbine_options=None, title='
         # If turbine_options is provided, display all turbine graphs immediately
         if turbine_options is not None:
             for t, turbine_name in enumerate(turbine_options):
-                update_turbine_plot(instancia,t, list_of_turb_power, turbine_options, flag,index)
+                update_turbine_plot(instancia,instancia_resultados,t, list_of_turb_power, turbine_options, bandera,index)
 
         # If turbine_options is None, display turbine graphs with a delay of 5 seconds between each
         else:
@@ -1581,30 +1733,26 @@ def calculate_and_display_turbine_power(instancia, turbine_options=None, title='
                 for t in range(len(turbine_options)):
                     instancia.parent.after(
                         t * 5000,  # Delay each turbine plot by 5 seconds
-                        partial(update_turbine_plot, instancia,index, t, list_of_turb_power, turbine_options, flag,index)
+                        partial(update_turbine_plot, instancia,index, t, list_of_turb_power, turbine_options, bandera,index)
                     )
-                instancia.registrar_mensaje("Displaying all turbine power plots with delay.")
+                if bandera:
+                    instancia_resultados.registrar_mensaje(f"Displaying all turbine power plots with delay.")
+                else:
+                    instancia.registrar_mensaje(f"Displaying all turbine power plots with delay.")
 
 
     except ValueError as ve:
         error_message = f"Value Error: {ve}"
-        handle_error(instancia,error_message, flag)
+        handle_error(instancia,instancia_resultados,error_message, bandera)
     except KeyError as ke:
         error_message = f"Key Error: {ke}"
-        handle_error(instancia.error_message, flag)
+        handle_error(instancia,instancia_resultados,error_message, bandera)
     except Exception as e:
         error_message = f"Unexpected Error: {e}"
-        handle_error(instancia,error_message, flag)
+        handle_error(instancia,instancia_resultados,error_message, bandera)
 
-def handle_error(instancia, message, flag):
-    """Handle errors by logging or showing in a specific component."""
-    print(f"Error: {message}")
-    if flag:
-        instancia.mostrar_información_2(f"{message} Try to Process the data first please on other page")
-    else:
-        instancia.mostrar_información(message)
 
-def update_turbine_plot(instancia, index, list_of_turb_power, turbine_options, flag,idx):
+def update_turbine_plot(instancia=None, instancia_resultados=None, index=None, list_of_turb_power=None, turbine_options=None, bandera=False,idx=None):
     """Update and display plot for a specific turbine."""
     if index < len(turbine_options):
         turbine_name = turbine_options[index]
@@ -1621,29 +1769,23 @@ def update_turbine_plot(instancia, index, list_of_turb_power, turbine_options, f
         fig.savefig(nombre_temporal)
         plt.close()  # Cerrar la figura para liberar recursos
         # Mostrar la imagen de acuerdo al valor de bandera
-        if flag:
-            mostrar_imagen_en_etiqueta(nombre_temporal, instancia.lblGraph_2)
+        if bandera:
+            mostrar_imagen_en_etiqueta(nombre_temporal, instancia_resultados.lblGraph)
         else:
             mostrar_imagen_en_etiqueta(nombre_temporal, instancia.lblGraph)
         os.remove(nombre_temporal)
         
 
-        if flag:
-            instancia.mostrar_informacióng_2(f"Displayed {turbine_name} plot.\n")
+        if bandera:
+            instancia_resultados.mostrar_información(f"Displayed {turbine_name} plot.\n")
         else:
             instancia.mostrar_información(f"Displayed {turbine_name} plot.\n")
 
-def display_plot_on_canvas(instancia, fig, flag):
-    """Convert matplotlib figure to Tkinter canvas and display."""
-    canvas = FigureCanvasTkAgg(fig, master=instancia.parent)
-    canvas.draw()
-    canvas.get_tk_widget().pack()
 
-    if flag:
-        instancia.lblGraph_2.pack_forget()  # Hide other label if flag is True
-        instancia.lblGraph_2.config(image=PhotoImage(master=instancia.parent))  # Clear label image for flag=True
-        canvas.get_tk_widget().pack()  # Pack the canvas for flag=True
+def handle_error(instancia,instancia_resultados, message, bandera):
+    """Handle errors by logging or showing in a specific component."""
+    print(f"Error: {message}")
+    if bandera:
+        instancia_resultados. mostrar_información(f"{message} \n Try to Process the data first please on other page")
     else:
-        instancia.lblGraph.pack_forget()  # Hide other label if flag is False
-        instancia.lblGraph.config(image=PhotoImage(master=instancia.parent))  # Clear label image for flag=False
-        canvas.get_tk_widget().pack()  # Pack the canvas for flag=False
+        instancia.mostrar_información(message)
