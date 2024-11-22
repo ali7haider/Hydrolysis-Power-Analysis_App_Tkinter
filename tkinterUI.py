@@ -11,7 +11,7 @@ from graph_functions import (graficar_datos_en_etiqueta,graficar_mapa_de_calor,g
                              graficar_comportamiento_anual_por_década_caudal,graficar_comportamiento_anual_por_década_nivel,graficar_perfil_hidrológico_caudal,
                              graficar_perfil_hidrológico_nivel,graficar_perfil_anual_dias_caudal,graficar_perfil_anual_dias_nivel,mostrar_estadísticas_nominales,
                              calcular_P95_y_mostrar,mostrar_caudal_promedio,mostrar_nivel_P95,mostrar_velocidad_flujo,mostrar_comportamiento_mensual,mostrar_velocidad_promedio_mensual,
-                            calculate_and_display_turbine_power
+                            calcular_y_mostrar_potencia_turbina
                              )
 
 class HydropowerApp(tk.Tk):
@@ -117,9 +117,9 @@ class HomePage(tk.Frame):
     ]
         self.turbine_graphs = [
         {
-            "function": calculate_and_display_turbine_power,
+            "function": calcular_y_mostrar_potencia_turbina,
             "titulo": "Turbine Power Output Over Time",
-            "turbine_options": [
+            "opciones_turbina": [
                 "SmartFreestream",
                 "SmartMonofloat",
                 "EnviroGen005series",
@@ -609,7 +609,7 @@ class HomePage(tk.Frame):
             # Handle turbine plots after regular graphs
             if self.turbine_option == 'Todos':
                 # Define the turbine options
-                turbine_options = [
+                opciones_turbina = [
                     "SmartFreestream",
                     "SmartMonofloat",
                     "EnviroGen005series",
@@ -618,15 +618,15 @@ class HomePage(tk.Frame):
                     "EVG-025H"
                 ]
 
-                # Ensure turbine_options are processed one by one
+                # Ensure opciones_turbina are processed one by one
                 if not hasattr(self, "turbine_index"):
                     self.turbine_index = 0  # Initialize the turbine index
 
-                if self.turbine_index < len(turbine_options):
+                if self.turbine_index < len(opciones_turbina):
                     # Display the turbine plot
-                    current_turbine = turbine_options[self.turbine_index]
+                    current_turbine = opciones_turbina[self.turbine_index]
                     print(current_turbine)
-                    calculate_and_display_turbine_power(self,None, current_turbine,titulo='', bandera=False,index=self.turbine_index)
+                    calcular_y_mostrar_potencia_turbina(self,None, current_turbine,titulo='', bandera=False,index=self.turbine_index)
 
                     # Move to the next turbine
                     self.turbine_index += 1
@@ -641,7 +641,7 @@ class HomePage(tk.Frame):
                     return
             else:
                 # Handle single turbine or default case
-                calculate_and_display_turbine_power(self,None, self.turbine_option,titulo='', bandera=False,index=0)
+                calcular_y_mostrar_potencia_turbina(self,None, self.turbine_option,titulo='', bandera=False,index=0)
                 return
 
         # Regular graph display logic
@@ -1042,9 +1042,9 @@ class ResultsPage(tk.Frame):
                         break
                 else:
                     for tgraph in self.home_page.turbine_graphs:
-                        if graph_title in tgraph["turbine_options"]:
+                        if graph_title in tgraph["opciones_turbina"]:
                             params = {
-                                "turbine_options": selected_item_text,  # The selected turbine
+                                "opciones_turbina": selected_item_text,  # The selected turbine
                                 "titulo": tgraph["titulo"],
                                 "bandera": True,
                                 "index": 0
@@ -1083,34 +1083,34 @@ class ResultsPage(tk.Frame):
 
         # Set column width to prevent text truncation
         self.tree.column("#0", width=300, stretch=True)
-        self.tree.heading("#0", text="Graphs")  # Set a heading for the column
+        self.tree.heading("#0", text="Gráficos")  # Set a heading for the column
 
         # Add "Graphs" category (collapsed by default)
-        graphs_parent = self.tree.insert("", "end", text="Graphs", open=False)
+        graphs_parent = self.tree.insert("", "end", text="Gráficos", open=False)
 
         # Add main graphs
         for graph in self.home_page.graphs:
             # Determine the parent category for the graph
             graph_title = graph["titulo"].strip()  # Ensure no extra whitespace
             if "Caudal" in graph_title:
-                caudal_parent = self._find_or_create_sub_parent(graphs_parent, "Caudal Graphs", open=False)
+                caudal_parent = self._find_or_create_sub_parent(graphs_parent, "Gráficos de Caudal", open=False)
                 graph_item = self.tree.insert(caudal_parent, "end", text=graph_title, open=False)
             elif "Nivel" in graph_title:
-                nivel_parent = self._find_or_create_sub_parent(graphs_parent, "Nivel Graphs", open=False)
+                nivel_parent = self._find_or_create_sub_parent(graphs_parent, "Gráficos de Nivel", open=False)
                 graph_item = self.tree.insert(nivel_parent, "end", text=graph_title, open=False)
             else:
                 graph_item = self.tree.insert(graphs_parent, "end", text=graph_title, open=False)
 
             # Add decades as sub-items under the specific graph node
             for decade in graph.get("décadas", []):
-                self.tree.insert(graph_item, "end", text=f"Decade {decade}", open=False)
+                self.tree.insert(graph_item, "end", text=f"Década {decade}", open=False)
 
         # Add "Turbine Graphs" category (collapsed by default)
-        turbine_parent = self.tree.insert("", "end", text="Turbine Graphs", open=False)
+        turbine_parent = self.tree.insert("", "end", text="Gráficos de Turbinas", open=False)
 
         for tgraph in self.home_page.turbine_graphs:
             turbine_item = self.tree.insert(turbine_parent, "end", text=tgraph["titulo"], open=False)
-            for option in tgraph.get("turbine_options", []):
+            for option in tgraph.get("opciones_turbina", []):
                 self.tree.insert(turbine_item, "end", text=option, open=False)
 
     def _find_or_create_sub_parent(self, parent, sub_title, open=False):
@@ -1159,7 +1159,7 @@ class ResultsPage(tk.Frame):
         # Back button
         self.btnBack = tk.Button(
             self.content_frame,
-            text="Back",
+            text="Volver",
             bg="#4d4eba",  # Background color
             fg="white",  # Text color
             font=("MS Shell Dlg 2", 12),

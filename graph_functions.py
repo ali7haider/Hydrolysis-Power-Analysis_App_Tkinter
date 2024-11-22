@@ -1665,12 +1665,12 @@ def mostrar_velocidad_mensual(instancia, instancia_resultados, df_merge_secos, d
             instancia_resultados.registrar_mensaje(f"Error en mostrar_velocidad_mensual: {e}")
         else:
             instancia.registrar_mensaje(f"Error en mostrar_velocidad_mensual: {e}")
-def calculate_and_display_turbine_power(instancia=None, instancia_resultados=None, turbine_options=None, titulo='', bandera=False,index=0):
-    """Calculate and display power output for the specified turbine models."""
+def calcular_y_mostrar_potencia_turbina(instancia=None, instancia_resultados=None, opciones_turbina=None, titulo='', bandera=False, index=0):
+    """Calcular y mostrar la potencia de salida para los modelos de turbina especificados."""
     try:
-        # Default turbine options if none are provided
-        if turbine_options is None:
-            turbine_options = [
+        # Opciones de turbina por defecto si no se proporcionan
+        if opciones_turbina is None:
+            opciones_turbina = [
                 "SmartFreestream",
                 "SmartMonofloat",
                 "EnviroGen005series",
@@ -1679,85 +1679,84 @@ def calculate_and_display_turbine_power(instancia=None, instancia_resultados=Non
                 "EVG-025H"
             ]
         else:
-            turbine_options = [turbine_options]  # Ensure it's a list
+            opciones_turbina = [opciones_turbina]  # Asegurarse de que sea una lista
 
-        # Load turbine data
-        file_name_datasheet = r'Datasheet_V2.csv'
-        file_name_powercurve = r'PowerCurves.xlsx'
-        df_datasheet = pd.read_csv(file_name_datasheet, delimiter=',')
-        df_powercurve = pd.read_excel(file_name_powercurve)
+        # Cargar los datos de las turbinas
+        archivo_datos = r'Datasheet_V2.csv'
+        archivo_powercurve = r'PowerCurves.xlsx'
+        df_datos = pd.read_csv(archivo_datos, delimiter=',')
+        df_powercurve = pd.read_excel(archivo_powercurve)
 
-        # Clean up the column names to remove leading/trailing spaces
-        df_datasheet.columns = df_datasheet.columns.str.strip()
-        # Initialize turbines
-        turbines = {}
-        for turbine_name in turbine_options:
-            # Check if the turbine name exists in the columns
-            if turbine_name not in df_datasheet.columns:
-                error_message = f"Turbine '{turbine_name}' not found in data sheet columns."
-                handle_error(instancia,instancia_resultados,error_message, bandera)
+        # Limpiar los nombres de las columnas para eliminar espacios iniciales/finales
+        df_datos.columns = df_datos.columns.str.strip()
+        # Inicializar las turbinas
+        turbinas = {}
+        for nombre_turbina in opciones_turbina:
+            # Verificar si el nombre de la turbina existe en las columnas
+            if nombre_turbina not in df_datos.columns:
+                mensaje_error = f"Turbina '{nombre_turbina}' no encontrada en las columnas del archivo de datos."
+                manejar_error(instancia, instancia_resultados, mensaje_error, bandera)
                 return
 
-            # Extract the relevant turbine data from the datasheet
-            data = df_datasheet[turbine_name].tolist()
-            filteredpc = df_powercurve[df_powercurve['Type'] == turbine_name]
+            # Extraer los datos relevantes de la turbina desde el archivo de datos
+            datos = df_datos[nombre_turbina].tolist()
+            filteredpc = df_powercurve[df_powercurve['Type'] == nombre_turbina]
 
-            turbines[turbine_name] = Turbina(
-                turbine_name, *data[:7], filteredpc
+            turbinas[nombre_turbina] = Turbina(
+                nombre_turbina, *datos[:7], filteredpc
             )
 
-        # Extract velocity data
-        velocity = instancia.df_merge['Velocidad'].tolist()
-        list_of_turb_power = []
+        # Extraer datos de velocidad
+        velocidad = instancia.df_merge['Velocidad'].tolist()
+        lista_potencia_turbina = []
 
-        # Pre-compute power outputs for each turbine
-        for turbine_name in turbine_options:
-            turbine = turbines[turbine_name]
-            power_output = turbine.PowerOut(velocity)
-            list_of_turb_power.append(power_output)
+        # Pre-calcular las potencias de salida para cada turbina
+        for nombre_turbina in opciones_turbina:
+            turbina = turbinas[nombre_turbina]
+            potencia_salida = turbina.PowerOut(velocidad)
+            lista_potencia_turbina.append(potencia_salida)
 
-        # If turbine_options is provided, display all turbine graphs immediately
-        if turbine_options is not None:
-            for t, turbine_name in enumerate(turbine_options):
-                update_turbine_plot(instancia,instancia_resultados,t, list_of_turb_power, turbine_options, bandera,index)
+        # Si se proporcionan opciones_turbina, mostrar todos los gráficos de turbinas inmediatamente
+        if opciones_turbina is not None:
+            for t, nombre_turbina in enumerate(opciones_turbina):
+                actualizar_grafico_turbina(instancia, instancia_resultados, t, lista_potencia_turbina, opciones_turbina, bandera, index)
 
-        # If turbine_options is None, display turbine graphs with a delay of 5 seconds between each
+        # Si no se proporciona opciones_turbina, mostrar los gráficos de turbinas con un retraso de 5 segundos entre cada uno
         else:
-            # If turbine_options is provided, display all turbine graphs immediately
-            if turbine_options is not None:
-                # Display turbine plots with a delay
-                for t in range(len(turbine_options)):
+            # Si se proporcionan opciones_turbina, mostrar todos los gráficos de turbinas inmediatamente
+            if opciones_turbina is not None:
+                # Mostrar los gráficos de turbinas con un retraso
+                for t in range(len(opciones_turbina)):
                     instancia.parent.after(
-                        t * 5000,  # Delay each turbine plot by 5 seconds
-                        partial(update_turbine_plot, instancia,index, t, list_of_turb_power, turbine_options, bandera,index)
+                        t * 5000,  # Retrasar cada gráfico de turbina por 5 segundos
+                        partial(actualizar_grafico_turbina, instancia, index, t, lista_potencia_turbina, opciones_turbina, bandera, index)
                     )
                 if bandera:
-                    instancia_resultados.registrar_mensaje(f"Displaying all turbine power plots with delay.")
+                    instancia_resultados.registrar_mensaje(f"Mostrando todos los gráficos de potencia de turbinas con retraso.")
                 else:
-                    instancia.registrar_mensaje(f"Displaying all turbine power plots with delay.")
-
+                    instancia.registrar_mensaje(f"Mostrando todos los gráficos de potencia de turbinas con retraso.")
 
     except ValueError as ve:
-        error_message = f"Value Error: {ve}"
-        handle_error(instancia,instancia_resultados,error_message, bandera)
+        mensaje_error = f"Error de valor: {ve}"
+        manejar_error(instancia, instancia_resultados, mensaje_error, bandera)
     except KeyError as ke:
-        error_message = f"Key Error: {ke}"
-        handle_error(instancia,instancia_resultados,error_message, bandera)
+        mensaje_error = f"Error de clave: {ke}"
+        manejar_error(instancia, instancia_resultados, mensaje_error, bandera)
     except Exception as e:
-        error_message = f"Unexpected Error: {e}"
-        handle_error(instancia,instancia_resultados,error_message, bandera)
+        mensaje_error = f"Error inesperado: {e}"
+        manejar_error(instancia, instancia_resultados, mensaje_error, bandera)
 
 
-def update_turbine_plot(instancia=None, instancia_resultados=None, index=None, list_of_turb_power=None, turbine_options=None, bandera=False,idx=None):
-    """Update and display plot for a specific turbine."""
-    if index < len(turbine_options):
-        turbine_name = turbine_options[index]
+def actualizar_grafico_turbina(instancia=None, instancia_resultados=None, index=None, lista_potencia_turbina=None, opciones_turbina=None, bandera=False, idx=None):
+    """Actualizar y mostrar el gráfico para una turbina específica."""
+    if index < len(opciones_turbina):
+        nombre_turbina = opciones_turbina[index]
         fig, ax = plt.subplots(figsize=(8, 6))
-        ax.plot(instancia.df_merge['Fecha'], list_of_turb_power[index], label=turbine_name,
+        ax.plot(instancia.df_merge['Fecha'], lista_potencia_turbina[index], label=nombre_turbina,
                 color=['blue', 'green', 'red', 'lime', 'darkorange', 'aquamarine'][idx])
         ax.set_xlabel('Año')
         ax.set_ylabel('Potencia (kW)')
-        ax.set_title(f'Modelo {turbine_name}')
+        ax.set_title(f'Modelo {nombre_turbina}')
         ax.legend()
         ax.grid(True)
         # Guardar el gráfico temporalmente como una imagen
@@ -1770,18 +1769,17 @@ def update_turbine_plot(instancia=None, instancia_resultados=None, index=None, l
         else:
             mostrar_imagen_en_etiqueta(nombre_temporal, instancia.lblGraph)
         os.remove(nombre_temporal)
-        
 
         if bandera:
-            instancia_resultados.mostrar_información(f"Displayed {turbine_name} plot.\n")
+            instancia_resultados.mostrar_información(f"Se mostró el gráfico de {nombre_turbina}.\n")
         else:
-            instancia.mostrar_información(f"Displayed {turbine_name} plot.\n")
+            instancia.mostrar_información(f"Se mostró el gráfico de {nombre_turbina}.\n")
 
 
-def handle_error(instancia,instancia_resultados, message, bandera):
-    """Handle errors by logging or showing in a specific component."""
-    print(f"Error: {message}")
+def manejar_error(instancia, instancia_resultados, mensaje, bandera):
+    """Manejar errores registrándolos o mostrándolos en un componente específico."""
+    print(f"Error: {mensaje}")
     if bandera:
-        instancia_resultados. mostrar_información(f"{message} \n Try to Process the data first please on other page")
+        instancia_resultados.mostrar_información(f"{mensaje} \n Por favor, intente procesar los datos primero en la otra página.")
     else:
-        instancia.mostrar_información(message)
+        instancia.mostrar_información(mensaje)
