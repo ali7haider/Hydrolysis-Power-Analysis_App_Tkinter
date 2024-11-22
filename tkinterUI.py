@@ -3,12 +3,7 @@ from tkinter import ttk
 import os
 import pandas as pd
 import pandas as pd
-from PIL import Image
-import seaborn as sns
-import matplotlib.pyplot as plt
-import matplotlib.pyplot as plt
 import tkinter.filedialog as filedialog
-from PIL import Image, ImageTk  # To work with images in Tkinter
 from tkinter import messagebox
 from graph_functions import (graficar_datos_en_etiqueta,graficar_mapa_de_calor,graficar_dispersión_caudal_por_década,graficar_dispersión_nivel_por_década,graficar_dispersion_anual_caudal,
                              graficar_dispersión_anual_nivel,mostrar_estadísticas,graficar_distribucion_caudal,graficar_distribución_nivel,
@@ -138,7 +133,7 @@ class HomePage(tk.Frame):
         
         # Initialize the UI components
         self.initialize_ui(parent)
-        self.registrar_mensaje_2("Please select two data files to begin: First one must start with 'Q' and and second one must start with 'NV'.\n")
+        self.registrar_mensaje_2("Por favor, seleccione dos archivos de datos para comenzar: El primero debe comenzar con 'Q' y el segundo debe comenzar con 'NV'.\n")
         # Setup your Tkinter components like label and graph information area
         # self.lblGraph = tk.Label(parent)
         # self.lblGraph.pack()
@@ -147,7 +142,7 @@ class HomePage(tk.Frame):
         """Function that loads the data files when btnCarga is clicked."""
         # Clear logs for the current step
         self.clear_logs()
-        self.registrar_mensaje("Starting data loading...\n")
+        self.registrar_mensaje("Iniciando la carga de datos...\n")
 
         # First dialog box for selecting a file
         first_file = self.select_file()
@@ -159,12 +154,13 @@ class HomePage(tk.Frame):
             # Check if the first file starts with 'Q'
             if first_filename.startswith("Q"):
                 self.caudal_file = first_file
-                self.registrar_mensaje(f"First file (Q) selected: {first_filename}\n")
+                self.registrar_mensaje(f"Primer archivo (Q) seleccionado: {first_filename}\n")
 
                 # Prompt user for second file with prefix "NV"
                 second_file = self.select_file("NV")
             else:
-                self.registrar_mensaje("Error: The first file must start with 'Q'. Please try again.")
+                self.registrar_mensaje("Error: El primer archivo debe comenzar con 'Q'. Por favor, inténtelo nuevamente.")
+
                 return  # Exit if the first file does not have 'Q' prefix
             
             # Check and assign the second file if selected correctly
@@ -174,11 +170,11 @@ class HomePage(tk.Frame):
                 # Check if second file starts with 'NV'
                 if second_filename.startswith("NV"):
                     self.nivel_file = second_file
-                    self.registrar_mensaje(f"Second file (NV) selected: {second_filename}")
-                    self.registrar_mensaje_2("Please click 'Pretratamiento de datos' to continue")
+                    self.registrar_mensaje(f"Segundo archivo (NV) seleccionado: {second_filename}")
+                    self.registrar_mensaje_2("Por favor, haga clic en 'Pretratamiento de datos' para continuar")
 
                 else:
-                    self.registrar_mensaje("Error: The second file must start with 'NV'. Please try again")
+                    self.registrar_mensaje("Error: El segundo archivo debe comenzar con 'NV'. Por favor, intente de nuevo.")
                     return  # Exit if the second file does not have 'NV' prefix
                 
                 # Load data from files
@@ -189,7 +185,6 @@ class HomePage(tk.Frame):
                     # Convert 'Fecha' to datetime format for both caudal and nivel datasets
                     self.caudal_data["Fecha"] = pd.to_datetime(self.caudal_data["Fecha"], errors='coerce')
                     self.nivel_data["Fecha"] = pd.to_datetime(self.nivel_data["Fecha"], errors='coerce')
-                    self.registrar_mensaje("Date conversion successful.")
                     
                     # Ensure 'Valor' column exists and filter valid dates
                     self.caudal_data = self.caudal_data.dropna(subset=["Fecha", "Valor"])
@@ -206,11 +201,12 @@ class HomePage(tk.Frame):
                     # self.btnPreta.setEnabled(True)
                     # self.btnCarga.setDisabled(True)  # Disable btnCarga to prevent re-clicking
                 except Exception as e:
-                    self.registrar_mensaje(f"<span style='color:red;'>Error loading data: {e}</span>")
+                    self.registrar_mensaje(f"Error al cargar los datos: {e}")
             else:
-                self.registrar_mensaje("<span style='color:red;'>Error: Second file not selected properly. Please try again.</span>")
+                self.registrar_mensaje("Error: Segundo archivo no seleccionado correctamente. Por favor, intente de nuevo.")
         else:
-            self.registrar_mensaje("<span style='color:red;'>Error: First file not selected properly. Please try again.</span>")
+            self.registrar_mensaje("Error: Primer archivo no seleccionado correctamente. Por favor, intente de nuevo.")
+
     def select_file(self, required_prefix=None):
         """Function for file selection using Tkinter's filedialog"""
         # Open file dialog to select a file
@@ -221,27 +217,27 @@ class HomePage(tk.Frame):
             
             # If required_prefix is given, check if the file has the correct prefix
             if required_prefix and not file_name.startswith(required_prefix):
-                self.registrar_mensaje(f"Error: The selected file must start with '{required_prefix}'. Please select a correct file")
+                self.registrar_mensaje(f"Error: El archivo seleccionado debe comenzar con '{required_prefix}'. Por favor, seleccione un archivo correcto.")
                 return None  # Return None if the file does not match the expected prefix
             
             # Ensure the file has not been selected already for both 'Q' and 'NV'
             if (required_prefix == "Q" and file_path == self.nivel_file) or (required_prefix == "NV" and file_path == self.caudal_file):
-                self.registrar_mensaje("Error: You cannot select the same file for both 'Q' and 'NV'. Please choose a different file.")
+                self.registrar_mensaje("Error: No puede seleccionar el mismo archivo para 'Q' y 'NV'. Por favor, elija un archivo diferente.")
                 return None  # Return None to indicate an error
 
             return file_path  # Return the selected file path if it matches the prefix
         else:
-            self.registrar_mensaje("No file selected. Please try again.")
+            self.registrar_mensaje("No se ha seleccionado ningún archivo. Por favor, intente de nuevo.")
             return None  # Return None if no file was selected
     def show_graph(self):
         """Update the graph sequentially every 5 seconds using Tkinter's after() method."""
         if self.current_graph == 0:
             # Display Caudal line graph
-            graficar_datos_en_etiqueta(self,self.caudal_data, etiqueta_y='Caudal (m3/s)', titulo='Gráfico de Línea de Caudal')
+            graficar_datos_en_etiqueta(self,self.caudal_data, etiqueta_y='Caudal (m3/s)', titulo='Gráfico de Línea de Valor en el Tiempo de Caudal (datos sin tratamiento)')
             self.current_graph = 1
         elif self.current_graph == 1:
             # Display Nivel line graph
-            graficar_datos_en_etiqueta(self,self.nivel_data, etiqueta_y='Nivel (m)', titulo='Gráfico de Línea de Nivel')
+            graficar_datos_en_etiqueta(self,self.nivel_data, etiqueta_y='Nivel (m)', titulo='Gráfico de Línea de Valor en el Tiempo de Nivel (datos sin tratamiento)')
             self.current_graph = 2
         elif self.current_graph == 2:
             # Display the Caudal heatmap
@@ -263,7 +259,8 @@ class HomePage(tk.Frame):
     def preprocess_data(self):
         """Function for the 'Pretratamiento' step, handling data completeness checks and interpolation."""
         self.clear_logs()  # Clear previous logs for clarity
-        self.registrar_mensaje("Starting data preprocessing...")
+        self.registrar_mensaje("Iniciando el preprocesamiento de datos...")
+
 
         # Load data from files
         self.caudal_data = pd.read_csv(self.caudal_file, delimiter='|', decimal='.')
@@ -273,9 +270,9 @@ class HomePage(tk.Frame):
         try:
             self.caudal_data["Fecha"] = pd.to_datetime(self.caudal_data["Fecha"], errors='coerce')
             self.nivel_data["Fecha"] = pd.to_datetime(self.nivel_data["Fecha"], errors='coerce')
-            self.registrar_mensaje("Date conversion successful")
+            self.registrar_mensaje("Conversión de fechas exitosa")
         except Exception as e:
-            self.registrar_mensaje(f"Error in date conversion: {e}")
+            self.registrar_mensaje(f"Error en la conversión de fechas: {e}")
             return
 
         # Ensure 'Valor' column exists and filter valid dates
@@ -289,16 +286,17 @@ class HomePage(tk.Frame):
             yearly_data["Missing %"] = 100 * (1 - yearly_data["Records"] / 365)
 
             # Log results with section headers and separator lines
-            self.registrar_mensaje(f"{label} Data Completeness by Year:")
+            self.registrar_mensaje(f"Completitud de los datos de {label} por año:")
             for _, row in yearly_data.iterrows():
                 year, records, missing_pct = row["Year"], row["Records"], row["Missing %"]
                 if missing_pct > 20:
                     color = 'red'
-                    status = "Marked for exclusion."
+                    status = "Marcado para exclusión."
                 else:
                     color = 'green'
-                    status = "Data is usable."
-                self.registrar_mensaje(f"Year {year}: {missing_pct:.2f}% missing  - {status}")
+                    status = "Los datos son utilizables."
+                self.registrar_mensaje(f"Año {year}: {missing_pct:.2f}% de datos faltantes  - {status}")
+
         
         # Process each dataset for interpolation and statistics
         for label, dataset in [("Caudal", self.caudal_data), ("Nivel", self.nivel_data)]:
@@ -339,20 +337,21 @@ class HomePage(tk.Frame):
 
             # Display Decade-wise statistics
             decade_stats = dataset.groupby("Decade")["Valor"].describe()
-            self.registrar_mensaje(f"{label} Data Statistics by Decade:")
+            self.registrar_mensaje(f"Estadísticas de los datos de {label} por década:")
             self.registrar_mensaje(decade_stats.to_string())
 
-            # Display statistics for consecutive NaNs after interpolation
+            # Mostrar estadísticas para los NaNs consecutivos después de la interpolación
             dataset.set_index("Fecha", inplace=True)
             dataset["NaN_count_post"] = dataset["Valor"].isna().astype(int).groupby(dataset["Valor"].notna().astype(int).cumsum()).cumsum()
             consecutive_nans_post = dataset.groupby(dataset.index.year)["NaN_count_post"].max()
-            self.registrar_mensaje(f"{label} Consecutive NaNs per Year After Interpolation:")
+            self.registrar_mensaje(f"{label} NaNs consecutivos por año después de la interpolación:")
             self.registrar_mensaje(consecutive_nans_post.to_string())
 
-            # Log completion of processing
-            self.registrar_mensaje(f"{label} data preprocessing completed with decade-wise summary.")
+            # Registrar la finalización del procesamiento
+            self.registrar_mensaje(f"Preprocesamiento de datos de {label} completado con resumen por décadas.")
+
         self.clear_logs_2()
-        self.registrar_mensaje_2("Please click 'Tratamiento de datos' to continue.\n")
+        self.registrar_mensaje_2("Por favor, haga clic en 'Tratamiento de datos' para continuar.\n")
 
         # Enable the next button after preprocessing
         self.btnPreta.config(state=tk.DISABLED)  # Disable btnCarga after successful file loading
@@ -365,7 +364,7 @@ class HomePage(tk.Frame):
         # Initialize text to show usable years
         usable_years_text = ""
         self.clear_logs_2()
-        self.registrar_mensaje_2("\n Click on Confirm to Contine. \n")
+        self.registrar_mensaje_2("\n Haga clic en Confirmar para continuar. \n")
 
 
         if self.caudal_data is not None and self.nivel_data is not None:
@@ -468,12 +467,12 @@ class HomePage(tk.Frame):
             self.clear_logs()  # Clear any previous logs
 
             # Read years from Entry fields and convert them to sets of integers
-            dry_years = set(map(int, self.txtDryYears.get().split(',')))
-            wet_years = set(map(int, self.txtWetYears.get().split(',')))
-            normal_years = set(map(int, self.txtNormalYears.get().split(',')))
+            años_secos = set(map(int, self.txtDryYears.get().split(',')))
+            años_humedos = set(map(int, self.txtWetYears.get().split(',')))
+            años_normales = set(map(int, self.txtNormalYears.get().split(',')))
 
             # Check if all entered years are in usable years
-            invalid_years = (dry_years | wet_years | normal_years) - usable_years
+            invalid_years = (años_secos | años_humedos | años_normales) - usable_years
             if invalid_years:
                 messagebox.showerror(
                     "Invalid Years",
@@ -482,17 +481,17 @@ class HomePage(tk.Frame):
                 )
                 return False
             else:
-                self.registrar_mensaje("Dry, Wet, and Normal Years confirmed successfully and saved.")
-                self.registrar_mensaje_2("\nPlease click 'Procesamiento' to continue.\n\n")
+                self.registrar_mensaje("Error: Los datos de Caudal o Nivel no están cargados. Por favor, cargue ambos conjuntos de datos primero.")
+                self.registrar_mensaje_2("\nPor favor, haga clic en 'Procesamiento' para continuar.\n\n")
 
                 # Save valid years for further processing
-                self.años_secos = dry_years
-                self.años_humedos = wet_years
-                self.años_normales = normal_years
+                self.años_secos = años_secos
+                self.años_humedos = años_humedos
+                self.años_normales = años_normales
 
-                print("Dry years:", self.años_secos)
-                print("Wet years:", self.años_humedos)
-                print("Normal years:", self.años_normales)
+                print("secos años:", self.años_secos)
+                print("humedos años:", self.años_humedos)
+                print("normales años:", self.años_normales)
                 # After processing, enable the next button and disable the current one
                 self.btnProce.config(state=tk.NORMAL)
                 self.btnTrata.config(state=tk.DISABLED)
@@ -579,9 +578,9 @@ class HomePage(tk.Frame):
         # Update button states
         self.btnResult.config(state=tk.NORMAL)  # Activate btnResult
         self.btnProce.config(state=tk.DISABLED)  # Disable btnProce
-        self.registrar_mensaje("\nTurbine Graph selected and saved.")
+        self.registrar_mensaje("\nGráfico de la turbina seleccionado y guardado.")
         self.clear_logs_2()
-        self.registrar_mensaje_2("\nPlease click 'Resultados' to continue.\n\n")
+        self.registrar_mensaje_2("\nPor favor, haga clic en 'Resultados' para continuar.\n\n")
 
         # Close the pop-up window
         popup.destroy()
@@ -589,7 +588,7 @@ class HomePage(tk.Frame):
         """Display each decade graph for caudal, nivel, and yearly graphs with 5-second intervals."""
         self.clear_logs()
         self.clear_logs_2()
-        self.registrar_mensaje_2("Showing Results (Each graph will change every 5 seconds)\n")
+        self.registrar_mensaje_2("Mostrando resultados (Cada gráfico cambiará cada 5 segundos)\n")
         self.btnResult.config(state=tk.DISABLED)  # Disable btnResult to prevent re-clicking
 
         
@@ -637,7 +636,7 @@ class HomePage(tk.Frame):
                 else:
                     # Reset turbine index after completion
                     del self.turbine_index
-                    self.registrar_mensaje("All turbine graphs displayed.")
+                    self.registrar_mensaje("Gráficos de la turbina seleccionados mostrados.")
                     return
             else:
                 # Handle single turbine or default case
