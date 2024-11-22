@@ -118,7 +118,7 @@ class HomePage(tk.Frame):
         self.turbine_graphs = [
         {
             "function": calcular_y_mostrar_potencia_turbina,
-            "titulo": "Turbine Power Output Over Time",
+            "titulo": "Salida de Potencia de la Turbina a lo Largo del Tiempo",
             "opciones_turbina": [
                 "SmartFreestream",
                 "SmartMonofloat",
@@ -127,7 +127,7 @@ class HomePage(tk.Frame):
                 "EVG-050H",
                 "EVG-025H"
             ],
-            "description": "Displays individual power output plots for selected turbines."
+        "descripción": "Muestra gráficos individuales de salida de potencia para las turbinas seleccionadas."
         }
     ]
         

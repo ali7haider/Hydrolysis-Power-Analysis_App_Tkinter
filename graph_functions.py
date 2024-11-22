@@ -132,7 +132,6 @@ def graficar_dispersión_caudal_por_década(instancia=None, instancia_resultados
     try:
         if bandera:
             décadas = décadas[0]
-            print(décadas)
 
         # Ordenar los datos por la columna 'Fecha'
         caudal_procesado = instancia.caudal_process.sort_values(by='Fecha')
@@ -455,20 +454,23 @@ def mostrar_estadísticas(instancia=None, instancia_resultados=None, titulo="Est
 
     # Formar el mensaje de estadísticas
     mensaje_estadísticas = estadísticas_caudal + estadísticas_nivel
-
     # Mostrar las estadísticas en el widget correspondiente
     if bandera:
+        instancia_resultados.lblGraph.image = None
+        instancia_resultados.lblGraph.config(image=None)
+        instancia_resultados.lblGraph.config(text="Las estadísticas se muestran a continuación.")
         instancia_resultados.limpiar_información()
         instancia_resultados. mostrar_información(mensaje_estadísticas)
     else:
+        instancia.lblGraph.image = None
+        instancia.lblGraph.config(image=None)
+        instancia.lblGraph.config(text="Las estadísticas se muestran a continuación.")
         instancia.limpiar_información()
         instancia.mostrar_información(mensaje_estadísticas)
 
 def graficar_distribucion_caudal(instancia=None, instancia_resultados=None, titulo='', décadas=[], bandera=False):
     """Graficar histograma y KDE de los datos de caudal con superposición de distribución normal en lblGraph y mostrar asimetría y curtosis en graphInformation."""
     try:
-        if bandera == True:
-            print("Bandera Verdadera")
         # Filtrar valores NaN
         datos_caudal = instancia.caudal_process['Valor'].dropna()
 
@@ -1190,10 +1192,18 @@ def mostrar_estadísticas_nominales(instancia=None, instancia_resultados=None,ti
         )
         if bandera:
             # instancia_resultados.lblGraph.clear()
-            instancia.limpiar_información()
-            instancia.mostrar_información(texto_estadísticas)
+            instancia_resultados.lblGraph.image = None
+            instancia_resultados.lblGraph.config(image=None)
+            instancia_resultados.lblGraph.config(text="Las estadísticas se muestran a continuación.")
+
+            instancia_resultados.limpiar_información()
+            instancia_resultados.mostrar_información(texto_estadísticas)
         else:
             # instancia.lblGraph.clear()
+            instancia.lblGraph.image = None
+            instancia.lblGraph.config(image=None)
+            instancia.lblGraph.config(text="Las estadísticas se muestran a continuación.")
+
             instancia.limpiar_información()
             instancia.mostrar_información(texto_estadísticas)
 
