@@ -20,16 +20,16 @@ class HydropowerApp(tk.Tk):
         self.title("Hydropower Workflow Application")
         self.geometry("1100x700")
         # Center the main window on the screen
-        self.center_window()
+        self.centrar_ventana()
         self.config(bg="white")
         self.pages = {}
 
         # Initialize the pages
-        self.create_pages()
+        self.crear_páginas()
 
         # Show the home page initially
-        self.show_page(HomePage)
-    def center_window(self):
+        self.mostrar_página(HomePage)
+    def centrar_ventana(self):
             """Centers the main window on the screen."""
             # Get the screen width and height
             screen_width = self.winfo_screenwidth()
@@ -45,7 +45,7 @@ class HydropowerApp(tk.Tk):
 
             # Set the position of the main window
             self.geometry(f'{window_width}x{window_height}+{position_left}+{position_top}')
-    def create_pages(self):
+    def crear_páginas(self):
         # First, create the HomePage instance
         home_page = HomePage(self)
         self.pages[HomePage] = home_page
@@ -56,11 +56,11 @@ class HydropowerApp(tk.Tk):
         self.pages[ResultsPage] = results_page
         results_page.place(relwidth=1, relheight=1)
 
-    def show_page(self, page_class):
+    def mostrar_página(self, page_class):
         # Bring the desired page to the front
         page = self.pages[page_class]
         if isinstance(page, ResultsPage):
-            page.populate_tree()  # Populate the Treeview with updated data
+            page.poblar_árbol()  # Populate the Treeview with updated data
         page.tkraise()
 class HomePage(tk.Frame):
     def __init__(self, parent):
@@ -132,74 +132,70 @@ class HomePage(tk.Frame):
     ]
         
         # Initialize the UI components
-        self.initialize_ui(parent)
+        self.inicializar_ui(parent)
         self.registrar_mensaje_2("Por favor, seleccione dos archivos de datos para comenzar: El primero debe comenzar con 'Q' y el segundo debe comenzar con 'NV'.\n")
         # Setup your Tkinter components like label and graph information area
         # self.lblGraph = tk.Label(parent)
         # self.lblGraph.pack()
         
-    def load_data(self):
-        """Function that loads the data files when btnCarga is clicked."""
-        # Clear logs for the current step
-        self.clear_logs()
+    def cargar_datos(self):
+        """Función que carga los archivos de datos cuando se hace clic en btnCarga."""
+        # Limpiar los registros para el paso actual
+        self.limpiar_registros()
         self.registrar_mensaje("Iniciando la carga de datos...\n")
 
-        # First dialog box for selecting a file
-        first_file = self.select_file()
+        # Primer cuadro de diálogo para seleccionar un archivo
+        primer_archivo = self.seleccionar_archivo()
 
-        if first_file:
-            # Extract the filename to check the prefix
-            first_filename = os.path.basename(first_file)
+        if primer_archivo:
+            # Extraer el nombre del archivo para verificar el prefijo
+            nombre_primer_archivo = os.path.basename(primer_archivo)
 
-            # Check if the first file starts with 'Q'
-            if first_filename.startswith("Q"):
-                self.caudal_file = first_file
-                self.registrar_mensaje(f"Primer archivo (Q) seleccionado: {first_filename}\n")
+            # Verificar si el primer archivo comienza con 'Q'
+            if nombre_primer_archivo.startswith("Q"):
+                self.caudal_file  = primer_archivo
+                self.registrar_mensaje(f"Primer archivo (Q) seleccionado: {nombre_primer_archivo}\n")
 
-                # Prompt user for second file with prefix "NV"
-                second_file = self.select_file("NV")
+                # Solicitar al usuario el segundo archivo con prefijo "NV"
+                segundo_archivo = self.seleccionar_archivo("NV")
             else:
                 self.registrar_mensaje("Error: El primer archivo debe comenzar con 'Q'. Por favor, inténtelo nuevamente.")
 
-                return  # Exit if the first file does not have 'Q' prefix
+                return  # Salir si el primer archivo no tiene el prefijo 'Q'
             
-            # Check and assign the second file if selected correctly
-            if second_file:
-                second_filename = os.path.basename(second_file)
+            # Verificar y asignar el segundo archivo si se selecciona correctamente
+            if segundo_archivo:
+                nombre_segundo_archivo = os.path.basename(segundo_archivo)
                 
-                # Check if second file starts with 'NV'
-                if second_filename.startswith("NV"):
-                    self.nivel_file = second_file
-                    self.registrar_mensaje(f"Segundo archivo (NV) seleccionado: {second_filename}")
+                # Verificar si el segundo archivo comienza con 'NV'
+                if nombre_segundo_archivo.startswith("NV"):
+                    self.nivel_file  = segundo_archivo
+                    self.registrar_mensaje(f"Segundo archivo (NV) seleccionado: {nombre_segundo_archivo}")
                     self.registrar_mensaje_2("Por favor, haga clic en 'Pretratamiento de datos' para continuar")
 
                 else:
                     self.registrar_mensaje("Error: El segundo archivo debe comenzar con 'NV'. Por favor, intente de nuevo.")
-                    return  # Exit if the second file does not have 'NV' prefix
+                    return  # Salir si el segundo archivo no tiene el prefijo 'NV'
                 
-                # Load data from files
+                # Cargar los datos de los archivos
                 try:
-                    self.caudal_data = pd.read_csv(self.caudal_file, delimiter='|', decimal='.')
-                    self.nivel_data = pd.read_csv(self.nivel_file, delimiter='|', decimal='.')
-                    
-                    # Convert 'Fecha' to datetime format for both caudal and nivel datasets
+                    self.caudal_data  = pd.read_csv(self.caudal_file , delimiter='|', decimal='.')
+                    self.nivel_data = pd.read_csv(self.nivel_file , delimiter='|', decimal='.')
+
+                    # Convertir 'Fecha' al formato datetime para ambos conjuntos de datos
                     self.caudal_data["Fecha"] = pd.to_datetime(self.caudal_data["Fecha"], errors='coerce')
                     self.nivel_data["Fecha"] = pd.to_datetime(self.nivel_data["Fecha"], errors='coerce')
-                    
-                    # Ensure 'Valor' column exists and filter valid dates
+
+                    # Asegurarse de que la columna 'Valor' exista y filtrar fechas válidas
                     self.caudal_data = self.caudal_data.dropna(subset=["Fecha", "Valor"])
                     self.nivel_data = self.nivel_data.dropna(subset=["Fecha", "Valor"])
-                    
-                    # Enable the next button and disable the current one
-                    self.btnCarga.config(state=tk.DISABLED)  # Disable btnCarga after successful file loading
-                    self.btnPreta.config(state=tk.NORMAL)  # Enable btnPreta after successful file loading
-                    # # Call this in your 'Procesamiento' (Processing) stage
-                    self.show_graph()
 
+                    # Habilitar el siguiente botón y deshabilitar el actual
+                    self.btnCarga.config(state=tk.DISABLED)  # Deshabilitar btnCarga después de cargar los archivos correctamente
+                    self.btnPreta.config(state=tk.NORMAL)  # Habilitar btnPreta después de cargar los archivos correctamente
+                    # Llamar a esto en tu etapa de 'Procesamiento'
+                    self.mostrar_grafico()
 
-                    # # Enable the next button after both files are selected
-                    # self.btnPreta.setEnabled(True)
-                    # self.btnCarga.setDisabled(True)  # Disable btnCarga to prevent re-clicking
                 except Exception as e:
                     self.registrar_mensaje(f"Error al cargar los datos: {e}")
             else:
@@ -207,29 +203,30 @@ class HomePage(tk.Frame):
         else:
             self.registrar_mensaje("Error: Primer archivo no seleccionado correctamente. Por favor, intente de nuevo.")
 
-    def select_file(self, required_prefix=None):
-        """Function for file selection using Tkinter's filedialog"""
-        # Open file dialog to select a file
-        file_path = filedialog.askopenfilename(title="Select File", filetypes=[("Data files", "*.data")])
+    def seleccionar_archivo(self, prefijo_requerido=None):
+        """Función para seleccionar archivo utilizando el cuadro de diálogo de Tkinter"""
+        # Abrir cuadro de diálogo para seleccionar un archivo
+        ruta_archivo = filedialog.askopenfilename(title="Seleccionar Archivo", filetypes=[("Archivos de datos", "*.data")])
         
-        if file_path:  # Check if a file was selected
-            file_name = os.path.basename(file_path)  # Get the file name without path
+        if ruta_archivo:  # Verificar si se seleccionó un archivo
+            nombre_archivo = os.path.basename(ruta_archivo)  # Obtener el nombre del archivo sin la ruta
             
-            # If required_prefix is given, check if the file has the correct prefix
-            if required_prefix and not file_name.startswith(required_prefix):
-                self.registrar_mensaje(f"Error: El archivo seleccionado debe comenzar con '{required_prefix}'. Por favor, seleccione un archivo correcto.")
-                return None  # Return None if the file does not match the expected prefix
+            # Si se proporciona prefijo_requerido, verificar si el archivo tiene el prefijo correcto
+            if prefijo_requerido and not nombre_archivo.startswith(prefijo_requerido):
+                self.registrar_mensaje(f"Error: El archivo seleccionado debe comenzar con '{prefijo_requerido}'. Por favor, seleccione un archivo correcto.")
+                return None  # Devolver None si el archivo no tiene el prefijo esperado
             
-            # Ensure the file has not been selected already for both 'Q' and 'NV'
-            if (required_prefix == "Q" and file_path == self.nivel_file) or (required_prefix == "NV" and file_path == self.caudal_file):
+            # Asegurarse de que el archivo no haya sido seleccionado ya para ambos 'Q' y 'NV'
+            if (prefijo_requerido == "Q" and ruta_archivo == self.nivel_file ) or (prefijo_requerido == "NV" and ruta_archivo == self.caudal_file ):
                 self.registrar_mensaje("Error: No puede seleccionar el mismo archivo para 'Q' y 'NV'. Por favor, elija un archivo diferente.")
-                return None  # Return None to indicate an error
+                return None  # Devolver None para indicar un error
 
-            return file_path  # Return the selected file path if it matches the prefix
+            return ruta_archivo  # Devolver la ruta del archivo seleccionado si coincide con el prefijo
         else:
             self.registrar_mensaje("No se ha seleccionado ningún archivo. Por favor, intente de nuevo.")
-            return None  # Return None if no file was selected
-    def show_graph(self):
+            return None  # Devolver None si no se seleccionó ningún archivo
+
+    def mostrar_grafico(self):
         """Update the graph sequentially every 5 seconds using Tkinter's after() method."""
         if self.current_graph == 0:
             # Display Caudal line graph
@@ -250,15 +247,15 @@ class HomePage(tk.Frame):
 
         # Schedule the next update in 5000 milliseconds (5 seconds) if not finished
         if self.current_graph < 4:
-            self.parent.after(5000, self.show_graph)  # Update graph every 5 seconds
+            self.parent.after(5000, self.mostrar_grafico)  # Update graph every 5 seconds
         else:
             print("All graphs have been displayed.")  # Add a message for clarity
 
     
 
-    def preprocess_data(self):
+    def preprocesar_datos(self):
         """Function for the 'Pretratamiento' step, handling data completeness checks and interpolation."""
-        self.clear_logs()  # Clear previous logs for clarity
+        self.limpiar_registros()  # Clear previous logs for clarity
         self.registrar_mensaje("Iniciando el preprocesamiento de datos...")
 
 
@@ -350,20 +347,20 @@ class HomePage(tk.Frame):
             # Registrar la finalización del procesamiento
             self.registrar_mensaje(f"Preprocesamiento de datos de {label} completado con resumen por décadas.")
 
-        self.clear_logs_2()
+        self.limpiar_registros_2()
         self.registrar_mensaje_2("Por favor, haga clic en 'Tratamiento de datos' para continuar.\n")
 
         # Enable the next button after preprocessing
         self.btnPreta.config(state=tk.DISABLED)  # Disable btnCarga after successful file loading
         self.btnTrata.config(state=tk.NORMAL)  # Enable btnPreta after successful file loading
-    def treat_data(self):
+    def tratar_datos(self):
         """Handle the Tratamiento button click to switch to page 1, filter available years, check data completeness, and fill missing values."""
         
         # Switch to the stack widget page with index 1
         
         # Initialize text to show usable years
         usable_years_text = ""
-        self.clear_logs_2()
+        self.limpiar_registros_2()
         self.registrar_mensaje_2("\n Haga clic en Confirmar para continuar. \n")
 
 
@@ -402,7 +399,7 @@ class HomePage(tk.Frame):
         self.graphInformation.insert(tk.END, message + "\n")  # Append message with newline to the log
         self.graphInformation.config(state=tk.DISABLED)  # Disable text box to make it read-only
 
-    def clear_logs(self):
+    def limpiar_registros(self):
         """Function to clear the log area."""
         self.graphInformation.config(state=tk.NORMAL)  # Enable text box to clear
         self.graphInformation.delete(1.0, tk.END)  # Delete all text
@@ -414,7 +411,7 @@ class HomePage(tk.Frame):
         self.textEditLogs.insert(tk.END, message + "\n")   # Append message to the log
         self.textEditLogs.config(state=tk.DISABLED)  # Disable text box to make it read-only
 
-    def clear_logs_2(self):
+    def limpiar_registros_2(self):
         """Function to clear the log area."""
         self.textEditLogs.config(state=tk.NORMAL)  # Enable text box to clear
         self.textEditLogs.delete(1.0, tk.END)  # Delete all text
@@ -435,7 +432,7 @@ class HomePage(tk.Frame):
     
     
     
-    def get_usable_years(self, dataset):
+    def obtener_años_usables(self, dataset):
         """Helper function to get years with less than 20% missing data from the dataset."""
         # Resample the dataset by year and calculate missing percentage
         yearly_data = dataset.set_index("Fecha").resample("Y").count()["Valor"]
@@ -448,23 +445,23 @@ class HomePage(tk.Frame):
         return set(usable_years)
 
 
-    def confirm_years(self):
+    def confirmar_años(self):
         """Check entered years for dry, wet, and normal, and validate against available years for both Caudal and Nivel, considering missing data."""
         if self.caudal_data is None or self.nivel_data is None:
             messagebox.showerror("Error de Validación", "Los datos de Caudal o Nivel no están disponibles para la validación.")
             return False
 
         # Get usable years for Caudal dataset (less than 20% missing data)
-        usable_years_caudal = self.get_usable_years(self.caudal_data)
+        usable_years_caudal = self.obtener_años_usables(self.caudal_data)
 
         # Get usable years for Nivel dataset (less than 20% missing data)
-        usable_years_nivel = self.get_usable_years(self.nivel_data)
+        usable_years_nivel = self.obtener_años_usables(self.nivel_data)
 
         # Get the union of usable years from both datasets
         usable_years = usable_years_caudal | usable_years_nivel
 
         try:
-            self.clear_logs()  # Clear any previous logs
+            self.limpiar_registros()  # Clear any previous logs
 
             # Read years from Entry fields and convert them to sets of integers
             años_secos = set(map(int, self.txtDryYears.get().split(',')))
@@ -503,12 +500,12 @@ class HomePage(tk.Frame):
             return False
 
 
-    def combined_function(self, func1, func2):
+    def función_combinada(self, func1, func2):
         """Call two functions sequentially."""
         if func1():  # Check if func1 returns True
             func2()  # Only call func2 if func1 was successful
 
-    def open_popup_window(self):
+    def abrir_ventana_emergente(self):
         """Creates and opens a pop-up window containing the combo box and button, centered on the screen."""
         # Create a new top-level window (pop-up)
         popup = tk.Toplevel(self.bg)
@@ -538,7 +535,7 @@ class HomePage(tk.Frame):
         center_frame.pack(expand=True)  # This will center the contents within input_container
 
         # Combo Box for selecting a processing method
-        self.cmbxTurbineGraph = self.create_combo_box(center_frame, "Seleccionar Gráficos de Turbinas", 
+        self.cmbxTurbineGraph = self.crear_caja_combinada(center_frame, "Seleccionar Gráficos de Turbinas", 
                                                     ["Todos", "SmartFreestream", "SmartMonofloat", "EnviroGen005series", 
                                                     "Hydroquest1.4", "EVG-050H", "EVG-050H"])
 
@@ -555,11 +552,11 @@ class HomePage(tk.Frame):
             highlightbackground="#4d4eba",  # Border color
             highlightthickness=2,  # Border thickness
             cursor="hand2",  # Pointer cursor
-            command=lambda: self.confirm_turbine_selection(popup)  # Wrap the function call
+            command=lambda: self.confirmar_selección_turbina(popup)  # Wrap the function call
         )
         self.btnConfirm_2.pack(pady=20, padx=20, anchor='e')  # Padding for the button
 
-    def confirm_turbine_selection(self, popup):
+    def confirmar_selección_turbina(self, popup):
         """
         Confirms the selected turbine graph, saves it to self.turbine_option,
         updates button states, and closes the pop-up window.
@@ -580,15 +577,15 @@ class HomePage(tk.Frame):
         self.btnResult.config(state=tk.NORMAL)  # Activate btnResult
         self.btnProce.config(state=tk.DISABLED)  # Disable btnProce
         self.registrar_mensaje("\nGráfico de la turbina seleccionado y guardado.")
-        self.clear_logs_2()
+        self.limpiar_registros_2()
         self.registrar_mensaje_2("\nPor favor, haga clic en 'Resultados' para continuar.\n\n")
 
         # Close the pop-up window
         popup.destroy()
-    def show_results(self):
+    def mostrar_resultados(self):
         """Display each decade graph for caudal, nivel, and yearly graphs with 5-second intervals."""
-        self.clear_logs()
-        self.clear_logs_2()
+        self.limpiar_registros()
+        self.limpiar_registros_2()
         self.registrar_mensaje_2("Mostrando resultados (Cada gráfico cambiará cada 5 segundos)\n")
         self.btnResult.config(state=tk.DISABLED)  # Disable btnResult to prevent re-clicking
 
@@ -600,9 +597,9 @@ class HomePage(tk.Frame):
         self.decade_index = 0
 
         # Start displaying the first graph
-        self.update_graph_display()
+        self.actualizar_mostrado_grafico()
 
-    def update_graph_display(self):
+    def actualizar_mostrado_grafico(self):
         """Update the graph display for each graph."""
         # Check if all graphs are displayed
         if self.graph_index >= len(self.graphs):
@@ -632,7 +629,7 @@ class HomePage(tk.Frame):
                     self.turbine_index += 1
 
                     # Schedule the next turbine plot after 5 seconds
-                    self.parent.after(5000, self.update_graph_display)
+                    self.parent.after(5000, self.actualizar_mostrado_grafico)
                     return
                 else:
                     # Reset turbine index after completion
@@ -663,11 +660,11 @@ class HomePage(tk.Frame):
             self.graph_index += 1
 
         # Schedule the next graph update after 1 second
-        self.parent.after(1000, self.update_graph_display)
+        self.parent.after(1000, self.actualizar_mostrado_grafico)
 
 
 
-    def initialize_ui(self, parent):
+    def inicializar_ui(self, parent):
         """Function to initialize the UI components"""
 
         # Create the frame for the sidebar
@@ -685,13 +682,13 @@ class HomePage(tk.Frame):
         self.button_frame.pack(fill=tk.Y, expand=True, pady=(80, 0))  # Top padding: 20, Bottom padding: 0
 
         # Create the buttons (equivalent to btnCarga, btnPreta, etc.)
-        self.btnCarga = tk.Button(self.button_frame, text="Carga de archivos", bg="blue", fg="white", font=("MS Shell Dlg 2", 12), width=20, command=self.load_data)
+        self.btnCarga = tk.Button(self.button_frame, text="Carga de archivos", bg="blue", fg="white", font=("MS Shell Dlg 2", 12), width=20, command=self.cargar_datos)
         self.btnCarga.pack(pady=5)
-        self.apply_button_styles(self.btnCarga)
+        self.aplicar_estilos_boton(self.btnCarga)
 
-        self.btnPreta = tk.Button(self.button_frame, text="Pretratamiento de datos", bg="blue", fg="white", font=("MS Shell Dlg 2", 12), width=20, state=tk.DISABLED,command=self.preprocess_data)
+        self.btnPreta = tk.Button(self.button_frame, text="Pretratamiento de datos", bg="blue", fg="white", font=("MS Shell Dlg 2", 12), width=20, state=tk.DISABLED,command=self.preprocesar_datos)
         self.btnPreta.pack(pady=5)
-        self.apply_button_styles(self.btnPreta)
+        self.aplicar_estilos_boton(self.btnPreta)
 
         self.btnTrata = tk.Button(
             self.button_frame,
@@ -701,18 +698,18 @@ class HomePage(tk.Frame):
             font=("MS Shell Dlg 2", 12),
             width=20,
             state=tk.DISABLED,
-            command=lambda: self.combined_function(self.show_Tratamiento, self.treat_data)
+            command=lambda: self.función_combinada(self.show_Tratamiento, self.tratar_datos)
         )
         self.btnTrata.pack(pady=5)
-        self.apply_button_styles(self.btnTrata)
+        self.aplicar_estilos_boton(self.btnTrata)
 
-        self.btnProce = tk.Button(self.button_frame, text="Procesamiento", bg="blue", fg="white", font=("MS Shell Dlg 2", 12), width=20, state=tk.DISABLED, command=self.open_popup_window)
+        self.btnProce = tk.Button(self.button_frame, text="Procesamiento", bg="blue", fg="white", font=("MS Shell Dlg 2", 12), width=20, state=tk.DISABLED, command=self.abrir_ventana_emergente)
         self.btnProce.pack(pady=5)
-        self.apply_button_styles(self.btnProce)
+        self.aplicar_estilos_boton(self.btnProce)
 
-        self.btnResult = tk.Button(self.button_frame, text="Resultados", bg="blue", fg="white", font=("MS Shell Dlg 2", 12), width=20, state=tk.DISABLED,command=self.show_results)
+        self.btnResult = tk.Button(self.button_frame, text="Resultados", bg="blue", fg="white", font=("MS Shell Dlg 2", 12), width=20, state=tk.DISABLED,command=self.mostrar_resultados)
         self.btnResult.pack(pady=5)
-        self.apply_button_styles(self.btnResult)
+        self.aplicar_estilos_boton(self.btnResult)
         
         self.btnSimulator = tk.Button(self.button_frame, text="Simular",bg="#4d4eba",fg="white", font=("MS Shell Dlg 2", 12), width=20, relief="flat", bd=2, highlightbackground="#4d4eba", highlightthickness=2, cursor="hand2")
         self.btnSimulator.pack(pady=5, anchor='e')
@@ -733,14 +730,14 @@ class HomePage(tk.Frame):
         self.content_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=10, pady=10)  # Expands to occupy the remaining space
         
         # Create Tratamiento page (hidden by default)
-        self.page_procesamiento = self.create_procesamiento_page()
+        self.page_procesamiento = self.crear_página_procesamiento()
         self.page_procesamiento.pack_forget()  # Initially hidden
 
-        self.page_Tratamiento = self.create_Tratamiento_page()
+        self.page_Tratamiento = self.crear_página_tratamiento()
         self.page_Tratamiento.pack_forget()  # Initially hidden
 
         # Button for "View All Graphs"
-        self.btnViewAllGraphs = tk.Button(self.content_frame, text="Ver todos los gráficos", bg="#4d4eba", fg="white", font=("MS Shell Dlg 2", 12), width=20, relief="flat", bd=2, highlightbackground="#4d4eba", highlightthickness=2, cursor="hand2", command=lambda: parent.show_page(ResultsPage))
+        self.btnViewAllGraphs = tk.Button(self.content_frame, text="Ver todos los gráficos", bg="#4d4eba", fg="white", font=("MS Shell Dlg 2", 12), width=20, relief="flat", bd=2, highlightbackground="#4d4eba", highlightthickness=2, cursor="hand2", command=lambda: parent.mostrar_página(ResultsPage))
         self.btnViewAllGraphs.pack(side=tk.TOP, pady=10, padx=10, anchor="e")
 
         # Add hover effects specific to btnViewAllGraphs
@@ -766,7 +763,7 @@ class HomePage(tk.Frame):
 
 
     
-    def apply_button_styles(self, button):
+    def aplicar_estilos_boton(self, button):
         # Apply normal style to the button
         button.config(
             bg="white", 
@@ -793,7 +790,7 @@ class HomePage(tk.Frame):
         # Bind hover events
         button.bind("<Enter>", on_hover)
         button.bind("<Leave>", on_leave)
-    def create_Tratamiento_page(self):
+    def crear_página_tratamiento(self):
         """Creates the Tratamiento page."""
         page = tk.Frame(self.bg, bg="white")  # Direct child of self.bg to replace content_frame
 
@@ -810,9 +807,9 @@ class HomePage(tk.Frame):
         input_container.pack(fill=tk.BOTH, expand=True, pady=30)  # Center the container vertically
 
         # Input fields
-        self.txtDryYears = self.create_input_field(input_container, "Años Secos", "Ingrese los Años Secos (Separados por comas)")
-        self.txtWetYears = self.create_input_field(input_container, "Años Húmedos", "Ingrese los Años Húmedos (Separados por comas)")
-        self.txtNormalYears = self.create_input_field(input_container, "Años Normales", "Ingrese los Años Normales (Separados por comas)")
+        self.txtDryYears = self.crear_campo_entrada(input_container, "Años Secos", "Ingrese los Años Secos (Separados por comas)")
+        self.txtWetYears = self.crear_campo_entrada(input_container, "Años Húmedos", "Ingrese los Años Húmedos (Separados por comas)")
+        self.txtNormalYears = self.crear_campo_entrada(input_container, "Años Normales", "Ingrese los Años Normales (Separados por comas)")
 
 
         # Confirm button
@@ -829,14 +826,14 @@ class HomePage(tk.Frame):
             highlightbackground="#4d4eba",  # Border color
             highlightthickness=2,  # Border thickness
             cursor="hand2",  # Pointer cursor
-            command=lambda: self.combined_function(self.confirm_years,self.show_content_frame)
+            command=lambda: self.función_combinada(self.confirmar_años,self.show_content_frame)
 
         )
         self.btnConfirm.pack(pady=20,padx=20,anchor='e')  # Padding for the button
 
         return page
 
-    def create_input_field(self, parent, label_text, placeholder="Enter text..."):
+    def crear_campo_entrada(self, parent, label_text, placeholder="Enter text..."):
         """Creates a styled input field with a label above it, aligned to the left, and with a placeholder."""
         frame = tk.Frame(parent, bg="white")
         frame.pack(pady=10)  # Add vertical spacing between input fields
@@ -881,7 +878,7 @@ class HomePage(tk.Frame):
         return entry
 
 
-    def create_procesamiento_page(self):
+    def crear_página_procesamiento(self):
         """Creates the Procesamiento page."""
         page = tk.Frame(self.bg, bg="white")  # Direct child of self.bg to replace content_frame
 
@@ -894,7 +891,7 @@ class HomePage(tk.Frame):
         center_frame.pack(expand=True)  # This will center the contents within input_container
 
         # Combo Box for selecting a processing method
-        self.cmbxTurbineGraph = self.create_combo_box(center_frame, "Seleccionar Gráficos de Turbinas", 
+        self.cmbxTurbineGraph = self.crear_caja_combinada(center_frame, "Seleccionar Gráficos de Turbinas", 
                                                     ["All", "SmartFreestream", "SmartMonofloat", "EnviroGen005series", 
                                                     "Hydroquest1.4", "EVG-050H", "EVG-050H"])
 
@@ -917,7 +914,7 @@ class HomePage(tk.Frame):
 
         return page
 
-    def create_combo_box(self, parent, label_text, options):
+    def crear_caja_combinada(self, parent, label_text, options):
         """Creates a combo box with a label above it."""
         frame = tk.Frame(parent, bg="white")
         frame.pack(pady=10)  # Add vertical spacing between input fields
@@ -1000,19 +997,19 @@ class ResultsPage(tk.Frame):
         self.home_page = home_page  # Reference to HomePage instance
 
         # Initialize the UI components
-        self.initialize_ui(parent)
+        self.inicializar_ui(parent)
 
     
-    def handle_graph_selection(self, event):
+    def manejar_selección_grafico(self, event):
         """Handle when a graph item is selected in the Treeview."""
         try:
             # Ensure both files and processed data are available
             if not self.home_page.caudal_file or not self.home_page.nivel_file:
-                self.show_warning("Missing Files", "Please select both 'Caudal' and 'Nivel' files before proceeding.")
+                self.mostrar_advertencia("Missing Files", "Please select both 'Caudal' and 'Nivel' files before proceeding.")
                 return
 
             if self.home_page.caudal_process is None or self.home_page.nivel_process is None:
-                self.show_warning("Data Not Processed", "Please process both 'Caudal' and 'Nivel' data before proceeding.")
+                self.mostrar_advertencia("Data Not Processed", "Please process both 'Caudal' and 'Nivel' data before proceeding.")
                 return
 
             # Get the selected item
@@ -1031,14 +1028,14 @@ class ResultsPage(tk.Frame):
                 for graph in self.home_page.graphs:
                     if graph["titulo"] == graph_title:
                         params = {"titulo": graph["titulo"], "décadas": [selected_decade], "bandera": True}
-                        self.display_graph(graph["function"], params)
+                        self.mostrar_grafico(graph["function"], params)
                         break
             else:
                 graph_title = selected_item_text
                 for graph in self.home_page.graphs:
                     if graph["titulo"] == graph_title:
                         params = {"titulo": graph["titulo"], "décadas": graph.get("décadas", []), "bandera": True}
-                        self.display_graph(graph["function"], params)
+                        self.mostrar_grafico(graph["function"], params)
                         break
                 else:
                     for tgraph in self.home_page.turbine_graphs:
@@ -1049,14 +1046,14 @@ class ResultsPage(tk.Frame):
                                 "bandera": True,
                                 "index": 0
                             }
-                            self.display_graph(tgraph["function"], params)
+                            self.mostrar_grafico(tgraph["function"], params)
                             break
 
         except Exception as e:
             # self.log_message(f"Error handling graph selection: {e}\n")
             print(f"Error handling graph selection: {e}\n")
 
-    def display_graph(self, graph_function, params=None):
+    def mostrar_grafico(self, graph_function, params=None):
         """Call the graph function and display the result."""
         try:
             # Ensure params is a dictionary to include self.home_page
@@ -1072,10 +1069,10 @@ class ResultsPage(tk.Frame):
             print(f"Error displaying graph: {e}\n")
 
 
-    def show_warning(self, title, message):
+    def mostrar_advertencia(self, title, message):
         """Display a warning message."""
         tk.messagebox.showwarning(title, message)
-    def populate_tree(self):
+    def poblar_árbol(self):
         """Populate the Treeview with graphs and turbine graphs."""
         # Clear the Treeview
         for item in self.tree.get_children():
@@ -1093,10 +1090,10 @@ class ResultsPage(tk.Frame):
             # Determine the parent category for the graph
             graph_title = graph["titulo"].strip()  # Ensure no extra whitespace
             if "Caudal" in graph_title:
-                caudal_parent = self._find_or_create_sub_parent(graphs_parent, "Gráficos de Caudal", open=False)
+                caudal_parent = self._encontrar_o_crear_subpadre(graphs_parent, "Gráficos de Caudal", open=False)
                 graph_item = self.tree.insert(caudal_parent, "end", text=graph_title, open=False)
             elif "Nivel" in graph_title:
-                nivel_parent = self._find_or_create_sub_parent(graphs_parent, "Gráficos de Nivel", open=False)
+                nivel_parent = self._encontrar_o_crear_subpadre(graphs_parent, "Gráficos de Nivel", open=False)
                 graph_item = self.tree.insert(nivel_parent, "end", text=graph_title, open=False)
             else:
                 graph_item = self.tree.insert(graphs_parent, "end", text=graph_title, open=False)
@@ -1113,7 +1110,7 @@ class ResultsPage(tk.Frame):
             for option in tgraph.get("opciones_turbina", []):
                 self.tree.insert(turbine_item, "end", text=option, open=False)
 
-    def _find_or_create_sub_parent(self, parent, sub_title, open=False):
+    def _encontrar_o_crear_subpadre(self, parent, sub_title, open=False):
         """Helper function to find or create a sub-parent node."""
         # Check if the sub-parent already exists
         for child in self.tree.get_children(parent):
@@ -1122,7 +1119,7 @@ class ResultsPage(tk.Frame):
         # Create a new sub-parent if not found
         return self.tree.insert(parent, "end", text=sub_title, open=open)
 
-    def initialize_ui(self, parent):
+    def inicializar_ui(self, parent):
         """Initialize the UI components for the ResultsPage."""
         self.bg = tk.Frame(self, bg="white")
         self.bg.pack(fill=tk.BOTH, expand=True)
@@ -1149,8 +1146,8 @@ class ResultsPage(tk.Frame):
         self.tree.heading("#0", text="Graphs")           # Set the heading for the default tree column
         self.tree.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
-        # Bind the selection event to the handle_graph_selection method
-        self.tree.bind("<<TreeviewSelect>>", self.handle_graph_selection)
+        # Bind the selection event to the manejar_selección_grafico method
+        self.tree.bind("<<TreeviewSelect>>", self.manejar_selección_grafico)
 
         # Create the content section on the right side (like stacked widget)
         self.content_frame = tk.Frame(self.bg, bg="white")
@@ -1169,7 +1166,7 @@ class ResultsPage(tk.Frame):
             highlightbackground="#4d4eba",  # Border color
             highlightthickness=2,  # Border thickness
             cursor="hand2",  # Pointer cursor
-            command=lambda: parent.show_page(HomePage)
+            command=lambda: parent.mostrar_página(HomePage)
         )
         self.btnBack.pack(side=tk.TOP, pady=10, anchor="e")
 
@@ -1201,7 +1198,7 @@ class ResultsPage(tk.Frame):
         self.graphInformation.config(state=tk.DISABLED)  # Making it read-only
         self.graphInformation.pack(fill=tk.BOTH, padx=10, pady=10)
 
-    def apply_button_styles(self, button):
+    def aplicar_estilos_boton(self, button):
         # Apply normal style to the button
         button.config(
             bg="white", 
