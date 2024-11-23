@@ -193,6 +193,7 @@ class HomePage(tk.Frame):
                     # Habilitar el siguiente botón y deshabilitar el actual
                     self.btnCarga.config(state=tk.DISABLED)  # Deshabilitar btnCarga después de cargar los archivos correctamente
                     self.btnPreta.config(state=tk.NORMAL)  # Habilitar btnPreta después de cargar los archivos correctamente
+                    self.current_graph = 0
                     # Llamar a esto en tu etapa de 'Procesamiento'
                     self.mostrar_grafico()
 
@@ -490,6 +491,10 @@ class HomePage(tk.Frame):
                 print("secos años:", self.años_secos)
                 print("humedos años:", self.años_humedos)
                 print("normales años:", self.años_normales)
+                # After processing, clear the fields
+                self.txtDryYears.delete(0, tk.END)
+                self.txtWetYears.delete(0, tk.END)
+                self.txtNormalYears.delete(0, tk.END)
                 # After processing, enable the next button and disable the current one
                 self.btnProce.config(state=tk.NORMAL)
                 self.btnTrata.config(state=tk.DISABLED)
@@ -622,7 +627,6 @@ class HomePage(tk.Frame):
                 if self.turbine_index < len(opciones_turbina):
                     # Display the turbine plot
                     current_turbine = opciones_turbina[self.turbine_index]
-                    print(current_turbine)
                     calcular_y_mostrar_potencia_turbina(self,None, current_turbine,titulo='', bandera=False,index=self.turbine_index)
 
                     # Move to the next turbine
@@ -634,11 +638,18 @@ class HomePage(tk.Frame):
                 else:
                     # Reset turbine index after completion
                     del self.turbine_index
+                    self.btnSimulator.config(state=tk.NORMAL)  # Habilitar btnPreta después de cargar los archivos correctamente
+                    self.btnSimulator.bind("<Enter>", lambda e: self.on_simulator_hover())
+                    self.btnSimulator.bind("<Leave>", lambda e: self.on_simulator_leave())
+        
                     self.registrar_mensaje("Gráficos de la turbina seleccionados mostrados.")
                     return
             else:
                 # Handle single turbine or default case
                 calcular_y_mostrar_potencia_turbina(self,None, self.turbine_option,titulo='', bandera=False,index=0)
+                self.btnSimulator.config(state=tk.NORMAL)  # Habilitar btnPreta después de cargar los archivos correctamente
+                self.btnSimulator.bind("<Enter>", lambda e: self.on_simulator_hover())
+                self.btnSimulator.bind("<Leave>", lambda e: self.on_simulator_leave())
                 return
 
         # Regular graph display logic
@@ -661,6 +672,37 @@ class HomePage(tk.Frame):
 
         # Schedule the next graph update after 1 second
         self.parent.after(1000, self.actualizar_mostrado_grafico)
+
+    def alternar_simulación(self):
+        """Alternar el proceso de simulación y restablecer los componentes."""
+        print(self.btnSimulator.cget("text"))
+        if self.btnSimulator.cget("text") == "Finalizar":
+            # Restablecer componentes
+            self.lblGraph.image = None
+            self.lblGraph.config(image=None)
+            self.limpiar_registros_2()
+            self.limpiar_registros()
+
+            self.registrar_mensaje_2("El gráfico y la información han sido borrados.\n")
+            self.registrar_mensaje_2("Por favor, seleccione dos archivos de datos para comenzar: El primero debe comenzar con 'Q' y el segundo debe comenzar con 'NV'.\n")
+            self.caudal_file = None
+            self.nivel_file = None
+            self.caudal_data = None
+            self.nivel_data = None
+            # Cambiar texto de nuevo a "Terminar"
+            self.btnSimulator.config(text="Terminar")
+            self.btnSimulator.config(state=tk.DISABLED)
+            # Eliminar efectos de hover
+            self.btnSimulator.unbind("<Enter>")
+            self.btnSimulator.unbind("<Leave>")
+
+            # Habilitar btnCarga para permitir una nueva carga
+            self.btnCarga.config(state=tk.NORMAL)
+        else:
+            # Preparar para un nuevo proceso
+            self.btnSimulator.config(text="Finalizar")
+            self.limpiar_registros_2()
+            self.registrar_mensaje_2("\nListo para iniciar el proceso nuevamente. Presiona Finalizar para comenzar otra vez.")
 
 
 
@@ -711,7 +753,7 @@ class HomePage(tk.Frame):
         self.btnResult.pack(pady=5)
         self.aplicar_estilos_boton(self.btnResult)
         
-        self.btnSimulator = tk.Button(self.button_frame, text="Simular",bg="#4d4eba",fg="white", font=("MS Shell Dlg 2", 12), width=20, relief="flat", bd=2, highlightbackground="#4d4eba", highlightthickness=2, cursor="hand2")
+        self.btnSimulator = tk.Button(self.button_frame, text="Terminar",bg="#4d4eba",fg="white", font=("MS Shell Dlg 2", 12), width=20, state=tk.DISABLED,relief="flat", bd=2, highlightbackground="#4d4eba", highlightthickness=2, cursor="hand2",command=self.alternar_simulación)
         self.btnSimulator.pack(pady=5, anchor='e')
 
         # Add hover effects specific to btnSimulator
@@ -1021,7 +1063,7 @@ class ResultsPage(tk.Frame):
 
             # Determine if the selection is a decade or a main graph
             parent_item_id = self.tree.parent(selected_item_id)
-            if selected_item_text.startswith("Decade"):
+            if selected_item_text.startswith("Década"):
                 graph_title = self.tree.item(parent_item_id, "text")
                 selected_decade = int(selected_item_text.split()[-1])
 
@@ -1178,7 +1220,7 @@ class ResultsPage(tk.Frame):
         self.lblGraph = tk.Label(
             self.content_frame, 
             text="El gráfico se mostrará aquí", 
-            bg="lightgray", 
+            bg="#f5f5f5", 
             font=("MS Shell Dlg 2", 14), 
             borderwidth=2, 
             relief="solid"

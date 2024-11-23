@@ -1659,10 +1659,16 @@ def mostrar_velocidad_mensual(instancia, instancia_resultados, df_merge_secos, d
         # Mostrar la información de estadísticas de velocidad
         if bandera:
             instancia_resultados.limpiar_información()
-            instancia_resultados. mostrar_información("Displayed daily average velocity graph for categories.\n")
+            instancia_resultados. mostrar_información("Se muestra el gráfico de velocidad promedio diaria por categorías.\n")
         else:
             instancia.limpiar_información()
-            instancia.mostrar_información("Displayed daily average velocity graph for categories.\n")
+            instancia.mostrar_información("Se muestra el gráfico de velocidad promedio diaria por categorías.\n")
+
+
+
+
+
+
 
     except Exception as e:
         if bandera:
